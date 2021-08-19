@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
 ```
 
 # config-file example
+
 ```cpp
 int main(int argc, char **argv) {
     // declaring key-words
@@ -55,6 +56,7 @@ int main(int argc, char **argv) {
 ```
 
 #named function args example
+
 ```cpp
 // declaring key-words
 struct kwords: justargs::kwords_group {
