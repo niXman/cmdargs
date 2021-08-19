@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 }
 ```
 
-#named function args example
+# named function args example
 
 ```cpp
 // declaring key-words
