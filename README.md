@@ -1,5 +1,9 @@
 # justargs
-command line/config-files and function named arguments library
+Command line/config-files and function named arguments library.
+
+The main point of this implementation is to get rid of the boilerplate checkout code.
+
+The second - the ability to use as a named function arguments.
 
 # command line example
 
