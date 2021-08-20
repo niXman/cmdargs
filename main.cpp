@@ -25,7 +25,6 @@
 
 #include <justargs/justargs.hpp>
 
-#include <sstream>
 #include <iostream>
 
 /*************************************************************************************************/

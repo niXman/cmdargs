@@ -20,7 +20,6 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
     
-    assert(args.is_set(kwords.fname));
     const auto fname = args.get(kwords.fname);
     
     assert(args.is_set(kwords.fsize));
@@ -47,7 +46,6 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
     
-    assert(args.is_set(kwords.fname));
     const auto fname = args.get(kwords.fname);
     
     assert(args.is_set(kwords.fsize));
@@ -78,7 +76,7 @@ int proxy_func(Args && ...args) {
 
 int main() {
     int res = proxy_func(kwords.fname = "file.txt", kwords.fsize = 1024);
-    res = proxy_func(kwords.fsize = 1024, kwords.fname = "file.txt");
+        res = proxy_func(kwords.fsize = 1024, kwords.fname = "file.txt");
     
     return res;
 }
