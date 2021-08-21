@@ -54,8 +54,6 @@ void myfunc(Args && ...args) {
 /*************************************************************************************************/
 
 int main(int argc, char **argv) {
-    kwords.show_help(std::cout, argv[0]);
-
     auto set = justargs::make_args(
          kwords.fname = "file.txt"
         ,kwords.fsize = 1024
@@ -176,6 +174,10 @@ int main(int argc, char **argv) {
         std::cout << set2 << std::endl;
 
         justargs::show_help(std::cout, argv[0], set2);
+
+        std::cout << std::endl;
+
+        kwords.show_help(std::cout, argv[0]);
     }
 }
 
