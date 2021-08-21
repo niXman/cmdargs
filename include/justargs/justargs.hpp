@@ -366,9 +366,9 @@ template <typename... Out, typename InCar, typename... InCdr>
 struct filter<std::tuple<Out...>, std::tuple<InCar, InCdr...>> {
     using type = typename std::conditional<
          contains<std::tuple<Out...>, InCar>::value
-        ,typename filter<std::tuple<Out...>, std::tuple<InCdr...>>::type
-        ,typename filter<std::tuple<Out..., InCar>, std::tuple<InCdr...>>::type
-    >::type;
+        ,filter<std::tuple<Out...>, std::tuple<InCdr...>>
+        ,filter<std::tuple<Out..., InCar>, std::tuple<InCdr...>>
+    >::type::type;
 };
 
 template <typename Out>
