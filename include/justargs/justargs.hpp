@@ -342,6 +342,43 @@ auto make_overloaded(Fs &&...fs) {
     return details::overloaded_set<Fs...>(std::forward<Fs>(fs)...);
 }
 
+// based on https://stackoverflow.com/questions/55941964
+template <typename, typename>
+struct contains;
+
+template <typename Car, typename... Cdr, typename Needle>
+struct contains<std::tuple<Car, Cdr...>, Needle>: contains<std::tuple<Cdr...>, Needle>
+{};
+
+template <typename... Cdr, typename Needle>
+struct contains<std::tuple<Needle, Cdr...>, Needle>: std::true_type
+{};
+
+template <typename Needle>
+struct contains<std::tuple<>, Needle>: std::false_type
+{};
+
+
+template <typename Out, typename In>
+struct filter;
+
+template <typename... Out, typename InCar, typename... InCdr>
+struct filter<std::tuple<Out...>, std::tuple<InCar, InCdr...>> {
+    using type = typename std::conditional<
+         contains<std::tuple<Out...>, InCar>::value
+        ,typename filter<std::tuple<Out...>, std::tuple<InCdr...>>::type
+        ,typename filter<std::tuple<Out..., InCar>, std::tuple<InCdr...>>::type
+    >::type;
+};
+
+template <typename Out>
+struct filter<Out, std::tuple<>> {
+    using type = Out;
+};
+
+template <typename T>
+using without_duplicates = typename filter<std::tuple<>, T>::type;
+
 } // ns details
 
 /*************************************************************************************************/
@@ -350,6 +387,11 @@ template<typename ...Args>
 struct args {
 private:
     using container_type = std::tuple<typename std::decay<Args>::type...>;
+    static_assert(
+        std::tuple_size<container_type>::value == std::tuple_size<details::without_duplicates<container_type>>::value
+        ,"duplicate keywords detected!"
+    );
+
     container_type m_kwords;
 
 public:
