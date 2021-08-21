@@ -54,6 +54,8 @@ void myfunc(Args && ...args) {
 /*************************************************************************************************/
 
 int main(int argc, char **argv) {
+    kwords.show_help(std::cout, argv[0]);
+
     auto set = justargs::make_args(
          kwords.fname = "file.txt"
         ,kwords.fsize = 1024

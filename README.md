@@ -5,6 +5,8 @@ The main point of this implementation is to get rid of the boilerplate checkout 
 
 The second - the ability to use as a named function arguments.
 
+Since the result of the `parse_args()/from_file()/make_args()` functions is a compile-time set, it is possible to write code using these options in compile-time style. 
+
 # command line example
 
 ```cpp
@@ -85,6 +87,38 @@ int main() {
     return res;
 }
 ```
+
+# show help message
+
+for all the keywords:
+```cpp
+int main(int argc, char **argv) {
+    // declaring key-words
+    struct kwords: justargs::kwords_group {
+        JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
+        JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
+    } const kwords;
+
+    kwords.show_help(std::cout, argv[0]);
+}
+```
+for selected only keywords:
+```cpp
+int main(int argc, char **argv) {
+    // declaring key-words
+    struct kwords: justargs::kwords_group {
+        JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
+        JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
+    } const kwords;
+
+    bool ok{};
+    std::string emsg{};
+    auto args = justargs::parse_args(&ok, &emsg, argc, argv, kwords.fname, kwords.fsize);
+
+    justargs::show_help(std::cout, argv[0], args);
+}
+```
+
 
 # TODO
 tests! tests! tests!

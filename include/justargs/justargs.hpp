@@ -308,6 +308,29 @@ struct kwords_group {
         return it->second.is_required();
     }
 
+    std::ostream& show_help(std::ostream &os, const char *argv0) const {
+        const char *p = std::strrchr(argv0, '/');
+        os
+        << (p ? p+1 : "program") << ":" << std::endl;
+
+        std::size_t max_len = 0;
+        for ( const auto &it: options) {
+            std::size_t len = it.first.length();
+            max_len = (len > max_len) ? len : max_len;
+        }
+
+        for ( const auto &it: options ) {
+            static const char filler[] = "                                        ";
+            const auto &name = it.first;
+            std::size_t len = name.length();
+            os << "--" << name << "=*";
+            os.write(filler, static_cast<std::streamsize>(max_len-len));
+            os << ": " << it.second->description() << " (" << it.second->type() << ", " << (it.second->is_required() ? "required" : "optional") << ")" << std::endl;
+        }
+
+        return os;
+    }
+
     std::map<std::string, const option_base *> options;
 };
 
