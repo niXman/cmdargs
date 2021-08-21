@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
     kwords.show_help(std::cout, argv[0]);
 }
 ```
-for selected only keywords:
+for selected keywords only:
 ```cpp
 int main(int argc, char **argv) {
     // declaring key-words
