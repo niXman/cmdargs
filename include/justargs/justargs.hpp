@@ -425,9 +425,9 @@ public:
     {}
 
     template<typename T>
-    bool has(const T &) const { return has_type<T>::value; }
+    constexpr bool has(const T &) const { return has_type<T>::value; }
     template<typename T>
-    bool has() const { return has_type<T>::value; }
+    constexpr bool has() const { return has_type<T>::value; }
 
     container_type& kwords() { return m_kwords; }
     const container_type& kwords() const { return m_kwords; }
