@@ -1,7 +1,7 @@
 # justargs
-Command line/config-files and function named arguments library.
+Command line/config-files parser and function named arguments library.
 
-The main point of this implementation is to get rid of the boilerplate checkout code.
+The main point of this implementation is to get rid of the boilerplate checkout code for command-line and config-file parser.
 
 The second - the ability to use as a named function arguments.
 
@@ -22,12 +22,12 @@ int main(int argc, char **argv) {
     auto args = justargs::parse_args(&ok, &emsg, argc, argv, kwords.fname, kwords.fsize);
     if ( !ok ) {
         std::cout << "args parse error: " << emsg << std::endl;
-        
+
         return EXIT_FAILURE;
     }
-    
+
     const auto fname = args.get(kwords.fname);
-    
+
     assert(args.is_set(kwords.fsize));
     const auto fsize = args.get(kwords.fsize);
 }
@@ -43,17 +43,18 @@ int main(int argc, char **argv) {
         JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
     } const kwords;
 
+    std::ifstream is;
     bool ok{};
     std::string emsg{};
-    auto set = justargs::from_file(&ok, &emsg, ss, kwords.fname, kwords.fsize);
+    auto set = justargs::from_file(&ok, &emsg, is, kwords.fname, kwords.fsize);
     if ( !ok ) {
         std::cout << "file parse error: " << emsg << std::endl;
-        
+
         return EXIT_FAILURE;
     }
-    
+
     const auto fname = args.get(kwords.fname);
-    
+
     assert(args.is_set(kwords.fsize));
     const auto fsize = args.get(kwords.fsize);
 }
@@ -70,7 +71,7 @@ struct kwords: justargs::kwords_group {
 
 // the real function
 int real_func(const std::string &fname, std::size_t fsize) {
-    
+
 }
 
 // the proxy function
@@ -83,7 +84,7 @@ int proxy_func(Args && ...args) {
 int main() {
     int res = proxy_func(kwords.fname = "file.txt", kwords.fsize = 1024);
         res = proxy_func(kwords.fsize = 1024, kwords.fname = "file.txt");
-    
+
     return res;
 }
 ```
