@@ -1,11 +1,34 @@
 # justargs
-Command line/config-files parser and function named arguments library.
+Initially this library was created as a concept for implementing named function arguments, but in the final version the ability to save and load values to/from an ini-file was added, as well as to process command line arguments.
 
-The main point of this implementation is to get rid of the boilerplate checkout code for command-line and config-file parser.
+# named function args example
 
-The second - the ability to use as a named function arguments.
+```cpp
+// declaring key-words
+struct kwords: justargs::kwords_group {
+    JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
+    JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
+} const kwords;
 
-Since the result of the `parse_args()/from_file()/make_args()` functions is a compile-time set, it is possible to write code using these options in compile-time style. 
+// the real function
+int real_func(const std::string &fname, std::size_t fsize) {
+
+}
+
+// the proxy function
+template<typename ...Args>
+int proxy_func(Args && ...args) {
+    const auto set = justargs::make_args(std::forward<Args>(args)...);
+    return real_func(set.get(kwords.fname), set.get(kwords.fsize));
+}
+
+int main() {
+    int res = proxy_func(kwords.fname = "file.txt", kwords.fsize = 1024);
+        res = proxy_func(kwords.fsize = 1024, kwords.fname = "file.txt");
+
+    return res;
+}
+```
 
 # command line example
 
@@ -57,35 +80,6 @@ int main(int argc, char **argv) {
 
     assert(args.is_set(kwords.fsize));
     const auto fsize = args.get(kwords.fsize);
-}
-```
-
-# named function args example
-
-```cpp
-// declaring key-words
-struct kwords: justargs::kwords_group {
-    JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
-    JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
-} const kwords;
-
-// the real function
-int real_func(const std::string &fname, std::size_t fsize) {
-
-}
-
-// the proxy function
-template<typename ...Args>
-int proxy_func(Args && ...args) {
-    const auto set = justargs::make_args(std::forward<Args>(args)...);
-    return real_func(set.get(kwords.fname), set.get(kwords.fsize));
-}
-
-int main() {
-    int res = proxy_func(kwords.fname = "file.txt", kwords.fsize = 1024);
-        res = proxy_func(kwords.fsize = 1024, kwords.fname = "file.txt");
-
-    return res;
 }
 ```
 
