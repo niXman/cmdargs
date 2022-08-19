@@ -27,7 +27,8 @@
 #ifndef __JUSTARGS__JUSTARGS_HPP
 #define __JUSTARGS__JUSTARGS_HPP
 
-#include <iostream> // TODO: comment out
+// TODO: comment out
+//#include <iostream>
 #include <ostream>
 #include <istream>
 #include <sstream>
@@ -39,15 +40,17 @@
 #include <string>
 #include <stdexcept>
 
-#include <cassert>
 #include <cstring>
 #include <cinttypes>
 
 /*************************************************************************************************/
 
+namespace justargs {
+namespace details {
+
 #if __cplusplus < 201703L
 
-namespace justargs {
+#define EXPAND_ON_CPP17(...)
 
 template<typename T>
 struct optional_type {
@@ -80,311 +83,52 @@ struct optional_type {
     T& value() noexcept { return m_val; }
     const T& value() const noexcept { return m_val; }
 
+    void reset() {
+        if ( m_inited ) {
+            m_val.T::~T();
+            m_inited = false;
+        }
+    }
+
     T m_val;
     bool m_inited;
 };
-
-} // ns justargs
 
 #else
 
 #include <optional>
 
-namespace justargs {
+#define EXPAND_ON_CPP17(...) \
+    __VA_ARGS__
 
 template<typename T>
 using optional_type = std::optional<T>;
 
-} // ns justargs
-
 #endif // __cplusplus < 201703L
-
-/*************************************************************************************************/
-
-namespace justargs {
-namespace details {
 
 inline void ltrim(std::string &s, const char* t = " \t\n\r") {
     s.erase(0, s.find_first_not_of(t));
-};
+}
 
 inline void rtrim(std::string &s, const char* t = " \t\n\r") {
     s.erase(s.find_last_not_of(t) + 1);
-};
+}
 
 inline void trim(std::string &s, const char* t = " \t\n\r") {
     rtrim(s, t);
     ltrim(s, t);
-};
-
-constexpr std::size_t ct_strlen(const char *s) {
-    const char *p = s;
-    for ( ; *p; ++p )
-        ;
-    return p - s;
 }
-
-template<std::size_t N>
-constexpr auto ct_init_array(const char *s, char c0, char c1) {
-    std::array<char, N> res{};
-    for ( auto i = 0u; *s; ++s, ++i ) {
-        res[i] = *s;
-    }
-    res[1] = c0;
-    res[2] = c1;
-
-    return res;
-}
-
-template<typename T>
-typename std::enable_if<std::is_same<T, std::string>::value>::type
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    val->assign(ptr, len);
-}
-
-template<typename T>
-typename std::enable_if<std::is_same<T, bool>::value>::type
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    *val = std::strncmp(ptr, "true", len) == 0;
-}
-
-template<typename T>
-typename std::enable_if<(std::is_integral<T>::value && !std::is_same<T, bool>::value)>::type
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    constexpr const char *fmt = (
-        std::is_unsigned<T>::value
-        ? (std::is_same<T, std::uint8_t>::value
-            ? "%  " SCNu8 : std::is_same<T, std::uint16_t>::value
-                ? "%  " SCNu16 : std::is_same<T, std::uint32_t>::value
-                    ? "%  " SCNu32
-                    : "%  " SCNu64
-        )
-        : (std::is_same<T, std::int8_t>::value
-            ? "%  " SCNi8 : std::is_same<T, std::int16_t>::value
-                ? "%  " SCNi16 : std::is_same<T, std::int32_t>::value
-                    ? "%  " SCNi32
-                    : "%  " SCNi64
-        )
-    );
-
-    enum { S = ct_strlen(fmt)+1 };
-    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
-
-    std::sscanf(ptr, fmtbuf.data(), val);
-}
-
-template<typename T>
-typename std::enable_if<std::is_floating_point<T>::value>::type
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    constexpr const char *fmt = (
-        std::is_same<T, float>::value
-        ? "%  f"
-        : "%  lf"
-    );
-
-    enum { S = ct_strlen(fmt)+1 };
-    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
-
-    std::sscanf(ptr, fmtbuf.data(), val);
-}
-
-template<typename T>
-typename std::enable_if<std::is_pointer<T>::value>::type
-from_string_impl(T &val, const char *, std::size_t) {
-    val = nullptr;
-}
-
-} // ns details
-
-#define __JUSTARGS_IIF_0(t, f) f
-#define __JUSTARGS_IIF_1(t, f) t
-#define __JUSTARGS_IIF_I(bit, t, f) __JUSTARGS_IIF_ ## bit(t, f)
-#define __JUSTARGS_IIF(bit, t, f) __JUSTARGS_IIF_I(bit, t, f)
-#define __JUSTARGS_IF(cond, t, f) __JUSTARGS_IIF(cond, t, f)
-
-#define __JUSTARGS_CAT_I(a, b) a ## b
-#define __JUSTARGS_CAT(a, b) __JUSTARGS_CAT_I(a, b)
-
-#define __JUSTARGS_STRINGIZE_I(x) #x
-#define __JUSTARGS_STRINGIZE(x) __JUSTARGS_STRINGIZE_I(x)
-
-#define __JUSTARGS_ARG16(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, ...) _15
-#define __JUSTARGS_HAS_COMMA(...) __JUSTARGS_ARG16(__VA_ARGS__, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
-#define __JUSTARGS_TRIGGER_PARENTHESIS_(...) ,
-#define __JUSTARGS_PASTE5(_0, _1, _2, _3, _4) _0 ## _1 ## _2 ## _3 ## _4
-#define __JUSTARGS_IS_EMPTY_CASE_0001 ,
-#define __JUSTARGS_IS_EMPTY(_0, _1, _2, _3) \
-    __JUSTARGS_HAS_COMMA(__JUSTARGS_PASTE5(__JUSTARGS_IS_EMPTY_CASE_, _0, _1, _2, _3))
-#define __JUSTARGS_TUPLE_IS_EMPTY(...) \
-    __JUSTARGS_IS_EMPTY( \
-        __JUSTARGS_HAS_COMMA(__VA_ARGS__), \
-        __JUSTARGS_HAS_COMMA(__JUSTARGS_TRIGGER_PARENTHESIS_ __VA_ARGS__), \
-        __JUSTARGS_HAS_COMMA(__VA_ARGS__ (/*empty*/)), \
-        __JUSTARGS_HAS_COMMA(__JUSTARGS_TRIGGER_PARENTHESIS_ __VA_ARGS__ (/*empty*/)) \
-    )
-
-/*************************************************************************************************/
-
-#define JUSTARGS_OPTION_DECLARE(SETNAME, SETTYPE, ...) \
-    struct __JUSTARGS_CAT(SETNAME, _t): ::justargs::option_base { \
-        using value_type       = SETTYPE; \
-        using optional_type    = ::justargs::optional_type<value_type>; \
-        using value_changed_cb = std::function<void(const optional_type &)>; \
-        using category         = __JUSTARGS_IF( \
-             __JUSTARGS_TUPLE_IS_EMPTY(__VA_ARGS__) \
-            ,::justargs::required \
-            ,::justargs::optional \
-        ); \
-        \
-        __JUSTARGS_CAT(SETNAME, _t)(const __JUSTARGS_CAT(SETNAME, _t) &) = default; \
-        __JUSTARGS_CAT(SETNAME, _t)& operator= (const __JUSTARGS_CAT(SETNAME, _t) &) = default; \
-        __JUSTARGS_CAT(SETNAME, _t)(__JUSTARGS_CAT(SETNAME, _t) &&) = default; \
-        __JUSTARGS_CAT(SETNAME, _t)& operator= (__JUSTARGS_CAT(SETNAME, _t) &&) = default; \
-        \
-        __JUSTARGS_CAT(SETNAME, _t)(const char *name, const char *type, const char *descr) \
-            :option_base{name, type, descr} \
-            ,m_val{} \
-            ,m_cb{} \
-        {} \
-        \
-        optional_type m_val; \
-        value_changed_cb m_cb; \
-        \
-        template<typename T> \
-        __JUSTARGS_CAT(SETNAME, _t) operator= (T &&v) const { \
-            optional_type opt{std::forward<T>(v)}; \
-            __JUSTARGS_CAT(SETNAME, _t) res{ \
-                 name() \
-                ,type() \
-                ,description() \
-            }; \
-            res.m_val = std::move(opt); \
-            \
-            return res; \
-        } \
-        \
-        bool is_required() const override { return std::is_same<category, justargs::required>::value; } \
-        bool is_optional() const override { return !is_required(); } \
-        bool is_set() const override { return static_cast<bool>(m_val); } \
-        bool is_bool() const override { return std::is_same<value_type, bool>::value; } \
-        \
-        __JUSTARGS_CAT(SETNAME, _t) bind(value_type *var) const { \
-            __JUSTARGS_CAT(SETNAME, _t) res{ \
-                name() \
-               ,type() \
-               ,description() \
-            }; \
-            res.m_cb = [var](const optional_type &v){ *var = v.value(); }; \
-            \
-            return res; \
-        } \
-        template<typename Obj> \
-        __JUSTARGS_CAT(SETNAME, _t) bind(Obj *o, void(Obj::*m)(const value_type &)) const { \
-            __JUSTARGS_CAT(SETNAME, _t) res{ \
-                name() \
-               ,type() \
-               ,description() \
-            }; \
-            res.m_cb = [o, m](const optional_type &v){ (o->*m)(v.value()); }; \
-            \
-            return res; \
-        } \
-        template<typename Obj> \
-        __JUSTARGS_CAT(SETNAME, _t) bind(Obj *o, void(Obj::*m)(value_type &)) const { \
-            __JUSTARGS_CAT(SETNAME, _t) res{ \
-                name() \
-               ,type() \
-               ,description() \
-            }; \
-            res.m_cb = [o, m](const optional_type &v){ (o->*m)(v.value()); }; \
-            \
-            return res; \
-        } \
-        template<typename T, typename Obj> \
-        __JUSTARGS_CAT(SETNAME, _t) bind(Obj *o, T Obj::*m) const { \
-            __JUSTARGS_CAT(SETNAME, _t) res{ \
-                name() \
-               ,type() \
-               ,description() \
-            }; \
-            res.m_cb = [o, m](const optional_type &v){ o->*m = v.value(); }; \
-            \
-            return res; \
-        } \
-        template<typename F, typename = typename std::enable_if<::justargs::details::is_callable<F>::value>::type> \
-        __JUSTARGS_CAT(SETNAME, _t) bind(F &&f) const { \
-            __JUSTARGS_CAT(SETNAME, _t) res{ \
-                name() \
-               ,type() \
-               ,description() \
-            }; \
-            res.m_cb = [f=std::forward<F>(f)](const optional_type &v){ f(v.value()); }; \
-            \
-            return res; \
-        } \
-        \
-        void set_cb(value_changed_cb c) { m_cb = std::move(c); } \
-        void call_cb() const { if ( m_cb ) m_cb(m_val); } \
-        \
-        void from_string(const char *ptr, std::size_t len) { \
-            value_type v{}; \
-            ::justargs::details::from_string_impl(std::addressof(v), ptr, len); \
-            m_val = std::move(v); \
-        } \
-        std::ostream& show_this(std::ostream &os) const { os << this; return os; } \
-    };
-
-#define JUSTARGS_OPTION(SETNAME, SETTYPE, DESCRIPTION, ...) \
-    JUSTARGS_OPTION_DECLARE(SETNAME, SETTYPE, __VA_ARGS__) \
-    const __JUSTARGS_CAT(SETNAME, _t) SETNAME{__JUSTARGS_STRINGIZE(SETNAME), __JUSTARGS_STRINGIZE(SETTYPE), DESCRIPTION};
-
-#define JUSTARGS_OPTION_HELP() \
-    JUSTARGS_OPTION(help, bool, "show help message", optional)
-
-#define JUSTARGS_OPTION_VERSION() \
-    JUSTARGS_OPTION(version, bool, "show version message", optional)
-
-/*************************************************************************************************/
-
-struct required;
-struct optional;
-
-/*************************************************************************************************/
-
-struct option_base {
-    explicit option_base(const char *name, const char *type, const char *descr)
-        :m_name{name}
-        ,m_type{type}
-        ,m_descr{descr}
-    {}
-    const char* name() const { return m_name; }
-    const char* type() const { return m_type; }
-    const char* description() const { return m_descr; }
-    virtual bool is_required() const = 0;
-    virtual bool is_optional() const = 0;
-    virtual bool is_set() const = 0;
-    virtual bool is_bool() const = 0;
-
-private:
-    const char *m_name;
-    const char *m_type;
-    const char *m_descr;
-};
-
-/*************************************************************************************************/
-
-namespace details {
 
 // is callable
+template<typename...>
+using void_t = void;
+
 template<typename F>
 using has_operator_call_t = decltype(&F::operator());
 
 template<typename F, typename = void>
-struct is_callable : std::false_type
+struct is_callable: std::false_type
 {};
-
-template<typename...>
-using void_t = void;
 
 template<typename F>
 struct is_callable<
@@ -396,6 +140,393 @@ struct is_callable<
     >
 > : std::true_type
 {};
+
+} // ns details
+
+enum obligatoriness {
+     optional
+    ,required
+};
+
+/*************************************************************************************************/
+
+struct option_base {
+    constexpr option_base(const char *name, const char *type_name, const char *description, bool is_required, option_base *next)
+        :m_name{name}
+        ,m_type_name{type_name}
+        ,m_description{description}
+        ,m_is_required{is_required}
+        ,m_next{next}
+    {}
+
+    constexpr std::size_t id() const { return fnv1a(m_name); }
+
+    const char *m_name;
+    const char *m_type_name;
+    const char *m_description;
+    const bool  m_is_required;
+    option_base *m_next;
+
+    std::ostream& show_help(std::ostream &os, std::size_t max_len) const {
+        static const char ident[] = "                                        ";
+        os << m_name;
+        if ( m_is_required ) {
+            os << "=*";
+        } else {
+            os << "  ";
+        }
+
+        std::size_t name_len = std::strlen(m_name);
+        os.write(ident, static_cast<std::streamsize>(max_len - name_len));
+        os << ": " << m_description << " (" << m_type_name << ", " << (m_is_required ? "required" : "optional") << ")";
+        os << std::endl;
+
+        return os;
+    }
+
+    virtual bool is_set() const = 0;
+    virtual bool is_bool() const = 0;
+    virtual bool has_default() const = 0;
+
+private:
+    static constexpr std::uint32_t fnv1a(const char *s, std::size_t len) {
+        std::uint32_t seed = 0x811c9dc5;
+        for ( ; len; --len, ++s ) {
+            seed = static_cast<std::uint32_t>(
+                (seed ^ static_cast<std::uint32_t>(*s)) * static_cast<std::uint64_t>(0x01000193)
+            );
+        }
+
+        return seed;
+    }
+    static constexpr std::uint32_t fnv1a(const char *s) {
+        return fnv1a(s, ct_strlen(s));
+    }
+
+    static constexpr std::size_t ct_strlen(const char *s) {
+        const char *p = s;
+        for ( ; *p; ++p )
+            ;
+        return p - s;
+    }
+
+    template<std::size_t N>
+    static constexpr auto ct_init_array(const char *s, char c0, char c1) {
+        std::array<char, N> res{};
+        for ( auto i = 0u; *s; ++s, ++i ) {
+            res[i] = *s;
+        }
+        res[1] = c0;
+        res[2] = c1;
+
+        return res;
+    }
+
+protected:
+    template<typename T>
+    static typename std::enable_if<std::is_same<T, std::string>::value>::type
+    from_string_impl(T *val, const char *ptr, std::size_t len) {
+        val->assign(ptr, len);
+    }
+    EXPAND_ON_CPP17(
+        template<typename T>
+        static typename std::enable_if<std::is_same<T, std::string_view>::value>::type
+        from_string_impl(T *val, const char *ptr, std::size_t len) {
+            *val = std::string_view{ptr, len};
+        }
+    )
+    template<typename T>
+    static typename std::enable_if<std::is_same<T, bool>::value>::type
+    from_string_impl(T *val, const char *ptr, std::size_t len) {
+        *val = std::strncmp(ptr, "true", len) == 0;
+    }
+    template<typename T>
+    static typename std::enable_if<(std::is_integral<T>::value && !std::is_same<T, bool>::value)>::type
+    from_string_impl(T *val, const char *ptr, std::size_t len) {
+        constexpr const char *fmt = (
+            std::is_unsigned<T>::value
+            ? (std::is_same<T, std::uint8_t>::value
+                ? "%  " SCNu8 : std::is_same<T, std::uint16_t>::value
+                    ? "%  " SCNu16 : std::is_same<T, std::uint32_t>::value
+                        ? "%  " SCNu32
+                        : "%  " SCNu64
+            )
+            : (std::is_same<T, std::int8_t>::value
+                ? "%  " SCNi8 : std::is_same<T, std::int16_t>::value
+                    ? "%  " SCNi16 : std::is_same<T, std::int32_t>::value
+                        ? "%  " SCNi32
+                        : "%  " SCNi64
+            )
+        );
+
+        enum { S = ct_strlen(fmt)+1 };
+        const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
+
+        std::sscanf(ptr, fmtbuf.data(), val);
+    }
+    template<typename T>
+    static typename std::enable_if<std::is_floating_point<T>::value>::type
+    from_string_impl(T *val, const char *ptr, std::size_t len) {
+        constexpr const char *fmt = (
+            std::is_same<T, float>::value
+            ? "%  f"
+            : "%  lf"
+        );
+
+        enum { S = ct_strlen(fmt)+1 };
+        const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
+
+        std::sscanf(ptr, fmtbuf.data(), val);
+    }
+    template<typename T>
+    static typename std::enable_if<std::is_pointer<T>::value>::type
+    from_string_impl(T &val, const char *, std::size_t) {
+        val = nullptr;
+    }
+
+};
+
+struct options_group {
+    options_group()
+        :m_root{}
+        ,m_end{}
+    {}
+
+    void add(option_base *p) {
+        if ( !p ) {
+            return;
+        }
+
+        if ( !m_root ) {
+            m_root = m_end = p;
+        } else {
+            m_end->m_next = p;
+            m_end = p;
+        }
+    }
+
+    std::ostream& show_help(std::ostream &os) const {
+        std::size_t max_len = 0;
+        for ( const auto *it = m_root; it; it = it->m_next ) {
+            std::size_t len = std::strlen(it->m_name);
+            max_len = (len > max_len ? len : max_len);
+        }
+        for ( const auto *it = m_root; it; it = it->m_next ) {
+            it->show_help(os, max_len);
+        }
+
+        return os;
+    }
+
+    option_base *m_root;
+    option_base *m_end;
+};
+
+
+template<typename T, typename Derived>
+struct option: option_base {
+    using value_type          = T;
+    using optional_type       = details::optional_type<value_type>;
+    using validator_cb_type   = std::function<bool(const char *, std::size_t)>;
+    using notificator_cb_type = std::function<void(const optional_type &)>;
+
+    option(
+         options_group *group
+        ,const char *name
+        ,const char *type_name
+        ,const char *description
+        ,obligatoriness req = obligatoriness::required
+        ,validator_cb_type vcb = {}
+        ,notificator_cb_type scb = {}
+    )
+        :option_base{name, type_name, description, req == obligatoriness::required, nullptr}
+        ,m_validator_cb{std::move(vcb)}
+        ,m_notificator_cb{std::move(scb)}
+        ,m_value{}
+        ,m_default{}
+    { if ( group ) group->add(this); }
+
+    option(const option &) = default;
+    option& operator= (const option &) = default;
+    option(option &&) noexcept = default;
+    option& operator= (option &&) noexcept = default;
+
+    void from_string(const char *ptr, std::size_t len) {
+        value_type v{};
+        from_string_impl(&v, ptr, len);
+        m_value = std::move(v);
+    }
+
+    void notificate() { if ( m_notificator_cb ) m_notificator_cb(m_value); }
+
+    bool is_set() const override { return static_cast<bool>(m_value); }
+    bool is_bool() const override { return std::is_same<T, bool>::value; }
+    bool has_default() const override { return static_cast<bool>(m_default); }
+
+    value_type&       get()       { return m_value.value(); }
+    const value_type& get() const { return m_value.value(); }
+
+    void reset() {
+        m_validator_cb = nullptr;
+        m_notificator_cb = nullptr;
+        m_default.reset();
+        m_value.reset();
+    }
+
+    template<typename U>
+    Derived operator= (U &&u) const noexcept {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = m_validator_cb;
+        res.m_notificator_cb = m_notificator_cb;
+        res.m_default = m_default;
+        res.m_value = optional_type{std::forward<U>(u)};
+
+        return res;
+    }
+    Derived bind(value_type *vptr) const {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = m_validator_cb;
+        res.m_notificator_cb = [vptr](const optional_type &v){ *vptr = v.value(); };
+        res.m_default = m_default;
+        res.m_value = m_value;
+
+        return res;
+    }
+    template<typename Obj>
+    Derived bind(Obj *o, void(Obj::*m)(const value_type &)) const {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = m_validator_cb;
+        res.m_notificator_cb = [o, m](const optional_type &v){ (o->*m)(v.value()); };
+        res.m_default = m_default;
+        res.m_value = m_value;
+
+        return res;
+    }
+    template<typename Obj>
+    Derived bind(Obj *o, void(Obj::*m)(value_type &)) const {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = m_validator_cb;
+        res.m_notificator_cb = [o, m](const optional_type &v){ (o->*m)(v.value()); };
+        res.m_default = m_default;
+        res.m_value = m_value;
+
+        return res;
+    }
+    template<typename U, typename Obj>
+    Derived bind(Obj *o, U Obj::*m) const {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = m_validator_cb;
+        res.m_notificator_cb = [o, m](const optional_type &v){ o->*m = v.value(); };
+        res.m_default = m_default;
+        res.m_value = m_value;
+
+        return res;
+    }
+    template<typename F, typename = typename std::enable_if<details::is_callable<F>::value>::type>
+    Derived bind(F &&f) const {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = m_validator_cb;
+        res.m_notificator_cb = [f=std::forward<F>(f)](const optional_type &v){ f(v.value()); };
+        res.m_default = m_default;
+        res.m_value = m_value;
+
+        return res;
+    }
+
+    template<typename U>
+    Derived default_(U &&u) const noexcept {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = m_validator_cb;
+        res.m_notificator_cb = m_notificator_cb;
+        res.m_default = optional_type{std::forward<U>(u)};
+        res.m_value = m_value;
+
+        return res;
+    }
+    template<typename F, typename = typename std::enable_if<details::is_callable<F>::value>::type>
+    Derived validate(F &&f) const noexcept {
+        Derived res{
+             nullptr
+            ,m_name
+            ,m_type_name
+            ,m_description
+            ,m_is_required ? obligatoriness::required : obligatoriness::optional
+        };
+        res.m_validator_cb = std::forward<F>(f);
+        res.m_notificator_cb = m_notificator_cb;
+        res.m_default = m_default;
+        res.m_value = m_value;
+
+        return res;
+    }
+
+    validator_cb_type m_validator_cb;
+    notificator_cb_type m_notificator_cb;
+    optional_type m_value;
+    optional_type m_default;
+};
+
+#define JUSTARGS_OPTION(name, type, description, ...) \
+    struct name##_t: public ::justargs::option<type, name##_t> { \
+        using option::option; \
+        template<typename T> \
+        name##_t operator= (T &&v) const { \
+            return option::operator= (std::forward<T>(v)); \
+        } \
+    }; \
+    const name##_t name{this, #name, #type, description, __VA_ARGS__}
+
+#define JUSTARGS_OPTION_HELP() \
+    JUSTARGS_OPTION(help, bool, "show help message", ::justargs::optional)
+
+#define JUSTARGS_OPTION_VERSION() \
+    JUSTARGS_OPTION(version, bool, "show version message", ::justargs::optional)
+
+/*************************************************************************************************/
+
+namespace details {
 
 // based on https://stackoverflow.com/questions/55941964
 template <typename, typename>
@@ -463,16 +594,16 @@ struct args {
         >::value;
     };
 
-    constexpr std::size_t size() const { return std::tuple_size<container_type>::value; }
+    static constexpr std::size_t size() { return std::tuple_size<container_type>::value; }
 
     template<typename T>
-    constexpr bool has(const T &) const { return has_type<T>::value; }
+    static constexpr bool has(const T &) { return has_type<T>::value; }
     template<typename T>
-    constexpr bool has() const { return has_type<T>::value; }
+    static constexpr bool has() { return has_type<T>::value; }
 
     template<typename T>
     bool is_set(const T &) const {
-        static_assert (has_type<T>::value, "");
+        static_assert(has<T>(), "");
 
         return std::get<T>(m_kwords).is_set();
     }
@@ -485,7 +616,7 @@ struct args {
 
         for_each(
             [name, &res](const auto &t, const auto &) {
-                if ( 0 == std::strcmp(t.name(), name) ) { res = t.is_bool(); }
+                if ( 0 == std::strcmp(t.m_name, name) ) { res = t.is_bool(); }
             }
             ,false
         );
@@ -496,29 +627,14 @@ struct args {
     template<typename T, typename VT>
     void set(const T &, VT &&v) {
         auto &item = std::get<T>(m_kwords);
-        item.m_val = std::forward<VT>(v);
-        item.call_cb();
+        item.m_value = std::forward<VT>(v);
     }
 
     template<typename T>
     const typename T::value_type& get(const T &) const {
-        static_assert (has_type<T>::value, "");
+        static_assert(has_type<T>::value, "");
 
-        return std::get<T>(m_kwords).m_val.value();
-    }
-    template<typename T>
-    typename T::value_type& get(const T &) {
-        static_assert (has_type<T>::value, "");
-
-        return std::get<T>(m_kwords).m_val.value();
-    }
-    template<typename T, typename D>
-    typename T::value_type get(const T &v, D &&def) const {
-        if ( has(v) ) {
-            return std::get<T>(m_kwords).m_val.value();
-        }
-
-        return def;
+        return std::get<T>(m_kwords).m_value.value();
     }
 
     void reset() {
@@ -542,12 +658,20 @@ struct args {
         for_each(m_kwords, std::forward<F>(f), inited_only);
     }
 
+    std::ostream& dump(std::ostream &os, bool inited_only = false) const {
+        to_file(os, *this, inited_only);
+        return os;
+    }
+    friend std::ostream& operator<< (std::ostream &os, const args &set) {
+        return set.dump(os);
+    }
+
     const char* check_for_unexpected(const char *optname) const {
         const char *ptr = nullptr;
         for_each(
              m_kwords
             ,[&ptr, optname](const auto &t, const auto &) {
-                if ( std::strcmp(t.name(), optname) == 0 ) { ptr = t.name(); }
+                if ( std::strcmp(t.m_name, optname) == 0 ) { ptr = t.m_name; }
             }
             ,false
         );
@@ -559,8 +683,8 @@ struct args {
         for_each(
              m_kwords
             ,[&name](const auto &t, const auto &){
-                if ( t.is_required() && !t.is_set() ) {
-                    name = t.name();
+                if ( t.m_is_required && !t.is_set() ) {
+                    name = t.m_name;
                 }
              }
             ,false
@@ -569,14 +693,7 @@ struct args {
         return name;
     }
 
-    std::ostream& dump(std::ostream &os, bool inited_only = false) const {
-        to_file(os, *this, inited_only);
-        return os;
-    }
-    friend std::ostream& operator<< (std::ostream &os, const args &set) {
-        return set.dump(os);
-    }
-
+private:
     // for debug only
     void show_this(std::ostream &os) const {
         for_each(
@@ -584,11 +701,10 @@ struct args {
         );
     }
 
-private:
     void reset_impl() {}
     template<typename T0, typename ...Types>
     void reset_impl(const T0 &, const Types & ...types) {
-        std::get<T0>(m_kwords).m_val = typename T0::value_type{};
+        std::get<T0>(m_kwords).reset();
         reset_impl(types...);
     }
 
@@ -607,11 +723,11 @@ private:
     for_each(const Tuple &tuple, Func &&func, bool inited_only) {
         const auto &val = std::get<I>(tuple);
         if ( inited_only ) {
-            if ( val.m_val ) {
-                func(val, val.m_val);
+            if ( val.m_value ) {
+                func(val, val.m_value);
             }
         } else {
-            func(val, val.m_val);
+            func(val, val.m_value);
         }
 
         for_each<I + 1>(tuple, std::forward<Func>(func), inited_only);
@@ -625,11 +741,11 @@ private:
     for_each(Tuple &tuple, Func &&func, bool inited_only) {
         auto &val = std::get<I>(tuple);
         if ( inited_only ) {
-            if ( val.m_val ) {
-                func(val, val.m_val);
+            if ( val.m_value ) {
+                func(val, val.m_value);
             }
         } else {
-            func(val, val.m_val);
+            func(val, val.m_value);
         }
 
         for_each<I + 1>(tuple, std::forward<Func>(func), inited_only);
@@ -682,16 +798,37 @@ auto parse_kv_list(bool *ok, std::string *emsg, const char *pref, std::size_t pr
 
         if ( pos != std::string::npos ) {
             const char *val = line.c_str() + pos + 1;
-            std::size_t len = (line.length() - pos) - 1;
+            std::size_t len = line.length() - pos - 1;
+            std::string msg;
             set.for_each(
-                 [key, val, len](auto &t, const auto &) {
-                    if ( std::strcmp(t.name(), key) == 0 ) {
-                        t.from_string(val, len);
-                        t.call_cb();
+                 [key, val, len, &msg](auto &t, const auto &) {
+                    if ( std::strcmp(t.m_name, key) == 0 ) {
+                        if ( t.m_validator_cb ) {
+                            if ( !t.m_validator_cb(val, len) ) {
+                                msg = "wrong validation for \"";
+                                msg += t.m_name;
+                                msg += "\" option";
+                            } else {
+                                t.from_string(val, len);
+                                t.notificate();
+                            }
+                        }
                     }
                  }
                 ,false
             );
+            if ( !msg.empty() ) {
+                if ( ok ) {
+                    *ok = false;
+                    if ( emsg ) {
+                        *emsg = std::move(msg);
+                    }
+                } else {
+                    throw std::invalid_argument(msg);
+                }
+
+                return set;
+            }
         } else {
             if ( !set.is_bool_type(key) ) {
                 std::string msg = "a value must be provided for \"--";
@@ -712,10 +849,10 @@ auto parse_kv_list(bool *ok, std::string *emsg, const char *pref, std::size_t pr
 
             set.for_each(
                  [key](auto &t, const auto &) {
-                    if ( std::strcmp(t.name(), key) == 0 ) {
+                    if ( std::strcmp(t.m_name, key) == 0 ) {
                         static const char _true[] = "true";
                         t.from_string(_true, sizeof(_true)-1);
-                        t.call_cb();
+                        t.notificate();
                     }
                  }
                 ,false
@@ -730,6 +867,16 @@ auto parse_kv_list(bool *ok, std::string *emsg, const char *pref, std::size_t pr
             }
         }
     }
+
+    // use default value if not inited
+    set.for_each(
+         [](const auto &t, auto &v) {
+            if ( !t.is_set() && t.has_default() ) {
+                v = t.m_default;
+            }
+         }
+        ,false
+    );
 
     const char *required = set.check_for_required();
     if ( required ) {
@@ -777,9 +924,9 @@ auto parse_args(bool *ok, std::string *emsg, int argc, char* const* argv, Args &
 namespace {
 
 struct proxy_printer {
-    static void print(std::ostream &os, const optional_type<bool> &v) { os << (v.value() ? "true" : "false"); }
+    static void print(std::ostream &os, const details::optional_type<bool> &v) { os << (v.value() ? "true" : "false"); }
     template<typename T>
-    static void print(std::ostream &os, const optional_type<T> &v) { os << v.value(); }
+    static void print(std::ostream &os, const details::optional_type<T> &v) { os << v.value(); }
 };
 
 } // anon ns
@@ -788,8 +935,8 @@ template<typename ...Args>
 std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_only = true) {
     set.for_each(
          [&os](auto &t, const auto &opt) {
-            os << "# " << t.description() << std::endl;
-            os << t.name() << "=";
+            os << "# " << t.m_description << std::endl;
+            os << t.m_name << "=";
             if ( opt ) {
                 proxy_printer::print(os, opt);
             }
@@ -852,30 +999,20 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...>
     std::size_t max_len = 0;
     set.for_each(
         [&max_len](const auto &t, const auto &) {
-            std::size_t len = std::strlen(t.name());
+            std::size_t len = std::strlen(t.m_name);
             max_len = (len > max_len) ? len : max_len;
          }
         ,false
     );
 
     set.for_each(
-        [&os, max_len](const auto &t, const auto &) {
-            static const char ident[] = "                                        ";
-            const char *name = t.name();
-            std::size_t len = std::strlen(name);
-            os << "--" << name << "=*";
-            os.write(ident, static_cast<std::streamsize>(max_len-len));
-            os
-            << ": " << t.description()
-            << " ("
-                << t.type()
-                << ", "
-                << (t.is_required() ? "required" : "optional")
-            << ")"
-            << std::endl;
+         [&os, max_len](const auto &t, const auto &) {
+            os << "  ";
+            t.show_help(os, max_len);
          }
         ,false
     );
+    os << std::endl;
 
     return os;
 }

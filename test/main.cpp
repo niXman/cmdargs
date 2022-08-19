@@ -32,7 +32,7 @@
 
 /*************************************************************************************************/
 
-struct: justargs::options_group {
+struct kw: justargs::options_group {
     JUSTARGS_OPTION(fname, std::string, "source file name");
     JUSTARGS_OPTION(fsize, std::size_t, "source file size", justargs::optional);
     JUSTARGS_OPTION_HELP();
@@ -41,55 +41,72 @@ struct: justargs::options_group {
 
 /*************************************************************************************************/
 
-bool to_file() {
-    const auto args = justargs::make_args(kwords.fname = "1.txt", kwords.fsize = 1024u);
+bool test_assign() {
+    auto k = kwords.fname = "12.txt";
 
-    std::ostringstream os;
-
-    justargs::to_file(os, args);
-
-    static const char *expected = ""
-        "# source file name\n"
-        "fname=1.txt\n"
-        "# source file size\n"
-        "fsize=1024\n"
-    ;
-
-    return os.str() == expected;
-}
-
-bool from_file() {
-    static const char *file = ""
-        "# source file name\n"
-        "fname=1.txt\n"
-        "# source file size\n"
-        "fsize=1024\n"
-    ;
-    std::istringstream is{file};
-
-    bool ok{};
-    std::string error_message;
-    const auto args = justargs::from_file(&ok, &error_message, is, kwords.fname, kwords.fsize);
-    static_assert(args.size() == 2, "");
-    assert(error_message.empty());
-    assert(ok == true);
-
-    return args.get(kwords.fname) == "1.txt" && args.get(kwords.fsize) == 1024;
+    return std::addressof(k) != std::addressof(kwords.fname);
 }
 
 /*************************************************************************************************/
 
+bool test_reset() {
+    auto k = kwords.fname = "12.txt";
+
+    assert(k.is_set());
+    assert(k.get() == "12.txt");
+
+    k.reset();
+
+    return !k.is_set();
+}
+
+/*************************************************************************************************/
+
+bool test_reset2() {
+    auto k = justargs::make_args(kwords.fname = "1.txt", kwords.fsize = 1024u);
+
+    assert(k.is_set(kwords.fname));
+    assert(k.get(kwords.fname) == "1.txt");
+
+    assert(k.is_set(kwords.fsize));
+    assert(k.get(kwords.fsize) == 1024);
+
+    k.reset();
+
+    assert(!k.is_set(kwords.fname));
+    assert(!k.is_set(kwords.fsize));
+
+    return true;
+}
+
+/*************************************************************************************************/
+
+bool test_set() {
+    auto k = justargs::make_args(kwords.fname = "1.txt", kwords.fsize = 1024u);
+
+    k.reset();
+
+    k.set(kwords.fname, "1.txt");
+    k.set(kwords.fsize, 1024);
+
+    return k.get(kwords.fname) == "1.txt" && k.get(kwords.fsize) == 1024;
+}
+
+/*************************************************************************************************/
+
+#define TEST(testname) \
+    if ( !testname() ) { \
+        std::cout << "\"" #testname "\" test error!" << std::endl; \
+        return EXIT_FAILURE; \
+    } else { \
+        std::cout << "\"" #testname "\" test successfully finished! " << std::endl; \
+    }
+
 int main(int, char *const *) {
-    if ( !to_file() ) {
-        std::cout << "to_file() test error!" << std::endl;
-
-        return EXIT_FAILURE;
-    }
-    if ( !from_file() ) {
-        std::cout << "from_file() test error!" << std::endl;
-
-        return EXIT_FAILURE;
-    }
+    TEST(test_assign);
+    TEST(test_reset);
+    TEST(test_reset2);
+    TEST(test_set);
 
     return EXIT_SUCCESS;
 }

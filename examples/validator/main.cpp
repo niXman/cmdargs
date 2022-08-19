@@ -27,7 +27,6 @@
 #include <justargs/justargs.hpp>
 
 #include <iostream>
-
 #include <cassert>
 
 /*************************************************************************************************/
@@ -69,7 +68,27 @@ bool from_file() {
 
     bool ok{};
     std::string error_message;
-    const auto args = justargs::from_file(&ok, &error_message, is, kwords.fname, kwords.fsize);
+    auto args = justargs::from_file(
+         &ok
+        ,&error_message
+        ,is
+        ,kwords.fname.validate(
+            [](const char *ptr, std::size_t len) -> bool {
+                if ( len != 5 ) {
+                    return false;
+                }
+                return std::strcmp(ptr, "1.txt") == 0;
+            }
+        )
+        ,kwords.fsize.validate(
+            [](const char *ptr, std::size_t len) -> bool {
+                if ( len != 4 ) {
+                    return false;
+                }
+                return std::strcmp(ptr, "1024") == 0;
+            }
+        )
+    );
     static_assert(args.size() == 2, "");
     assert(error_message.empty());
     assert(ok == true);

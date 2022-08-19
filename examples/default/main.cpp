@@ -27,7 +27,6 @@
 #include <justargs/justargs.hpp>
 
 #include <iostream>
-
 #include <cassert>
 
 /*************************************************************************************************/
@@ -42,7 +41,7 @@ struct: justargs::options_group {
 /*************************************************************************************************/
 
 bool to_file() {
-    const auto args = justargs::make_args(kwords.fname = "1.txt", kwords.fsize = 1024u);
+    const auto args = justargs::make_args(kwords.fname = "1.txt");
 
     std::ostringstream os;
 
@@ -51,8 +50,6 @@ bool to_file() {
     static const char *expected = ""
         "# source file name\n"
         "fname=1.txt\n"
-        "# source file size\n"
-        "fsize=1024\n"
     ;
 
     return os.str() == expected;
@@ -60,8 +57,6 @@ bool to_file() {
 
 bool from_file() {
     static const char *file = ""
-        "# source file name\n"
-        "fname=1.txt\n"
         "# source file size\n"
         "fsize=1024\n"
     ;
@@ -69,7 +64,13 @@ bool from_file() {
 
     bool ok{};
     std::string error_message;
-    const auto args = justargs::from_file(&ok, &error_message, is, kwords.fname, kwords.fsize);
+    const auto args = justargs::from_file(
+         &ok
+        ,&error_message
+        ,is
+        ,kwords.fname.default_("1.txt")
+        ,kwords.fsize
+    );
     static_assert(args.size() == 2, "");
     assert(error_message.empty());
     assert(ok == true);

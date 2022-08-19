@@ -1,24 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
-project(justargs)
+project(tests)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra") # -fsanitize=address
-
-add_definitions(
-    -UNDEBUG
-)
-
-include_directories(
-    ./include
-)
-
-set(SOURCES
-    include/justargs/justargs.hpp
-    main.cpp
-)
-
-add_executable(${PROJECT_NAME} ${SOURCES})
-
-target_link_libraries(
-    ${PROJECT_NAME}
-    pthread
-)
+add_subdirectory(examples/bind)
+add_subdirectory(examples/cmdline)
+add_subdirectory(examples/funcargs)
+add_subdirectory(examples/inifile)
+add_subdirectory(examples/default)
+add_subdirectory(examples/validator)

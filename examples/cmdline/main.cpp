@@ -30,11 +30,11 @@
 
 /*************************************************************************************************/
 
-struct {
-    JUSTARGS_OPTION(fname, std::string, "source file name")
-    JUSTARGS_OPTION(fsize, std::size_t, "source file size", optional)
-    JUSTARGS_OPTION_HELP()
-    JUSTARGS_OPTION_VERSION()
+struct: justargs::options_group {
+    JUSTARGS_OPTION(fname, std::string, "source file name");
+    JUSTARGS_OPTION(fsize, std::size_t, "source file size", justargs::optional);
+    JUSTARGS_OPTION_HELP();
+    JUSTARGS_OPTION_VERSION();
 } const kwords;
 
 int main(int argc, char *const *argv) {
