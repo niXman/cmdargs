@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
 // This file is part of JustArgs(github.com/niXman/justargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +30,7 @@
 
 /*************************************************************************************************/
 
-struct {
+struct: justargs::kwords_group {
     JUSTARGS_OPTION(fname, std::string, "source file name")
     JUSTARGS_OPTION(fsize, std::size_t, "source file size", optional)
     JUSTARGS_OPTION_HELP()
@@ -39,6 +39,13 @@ struct {
 
 /*************************************************************************************************/
 
+static const char *expected = ""
+    "# source file name\n"
+    "fname=1.txt\n"
+    "# source file size\n"
+    "fsize=1024\n"
+;
+
 bool to_file() {
     const auto args = justargs::make_args(kwords.fname = "1.txt", kwords.fsize = 1024u);
 
@@ -46,24 +53,11 @@ bool to_file() {
 
     justargs::to_file(os, args);
 
-    static const char *expected = ""
-        "# source file name\n"
-        "fname=1.txt\n"
-        "# source file size\n"
-        "fsize=1024\n"
-    ;
-
     return os.str() == expected;
 }
 
 bool from_file() {
-    static const char *file = ""
-        "# source file name\n"
-        "fname=1.txt\n"
-        "# source file size\n"
-        "fsize=1024\n"
-    ;
-    std::istringstream is{file};
+    std::istringstream is{expected};
 
     bool ok{};
     std::string error_message;

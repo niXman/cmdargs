@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
 // This file is part of JustArgs(github.com/niXman/justargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +30,7 @@
 
 /*************************************************************************************************/
 
-struct {
+struct: justargs::kwords_group {
     JUSTARGS_OPTION(fname, std::string, "source file name")
     JUSTARGS_OPTION(fsize, std::size_t, "source file size", optional)
     JUSTARGS_OPTION_HELP()
@@ -63,10 +63,12 @@ bool bind_to_vars() {
         return false;
     }
 
+    static_assert(args.has(kwords.fname), "");
     assert(args.has(kwords.fname));
     assert(args.is_set(kwords.fname));
     assert(args.get(kwords.fname) == "1.txt");
 
+    static_assert(args.has(kwords.fsize), "");
     assert(args.has(kwords.fsize));
     assert(args.is_set(kwords.fsize));
     assert(args.get(kwords.fsize) == 1024);
@@ -74,7 +76,10 @@ bool bind_to_vars() {
     assert(fname == "1.txt");
     assert(fsize == 1024);
 
+    static_assert(!args.has(kwords.help), "");
     assert(!args.has(kwords.help));
+
+    static_assert(!args.has(kwords.version), "");
     assert(!args.has(kwords.version));
 
     return true;
@@ -110,16 +115,24 @@ bool bind_to_member_functions() {
         return false;
     }
 
+    static_assert(args.has(kwords.fname), "");
     assert(args.has(kwords.fname));
     assert(args.is_set(kwords.fname));
     assert(args.get(kwords.fname) == "1.txt");
 
+    static_assert(args.has(kwords.fsize), "");
     assert(args.has(kwords.fsize));
     assert(args.is_set(kwords.fsize));
     assert(args.get(kwords.fsize) == 1024);
 
     assert(options_user.fname == "1.txt");
     assert(options_user.fsize == 1024);
+
+    static_assert(!args.has(kwords.help), "");
+    assert(!args.has(kwords.help));
+
+    static_assert(!args.has(kwords.version), "");
+    assert(!args.has(kwords.version));
 
     return true;
 }
@@ -152,16 +165,24 @@ bool bind_to_member_vars() {
         return false;
     }
 
+    static_assert(args.has(kwords.fname), "");
     assert(args.has(kwords.fname));
     assert(args.is_set(kwords.fname));
     assert(args.get(kwords.fname) == "1.txt");
 
+    static_assert(args.has(kwords.fsize), "");
     assert(args.has(kwords.fsize));
     assert(args.is_set(kwords.fsize));
     assert(args.get(kwords.fsize) == 1024);
 
     assert(options_user.fname == "1.txt");
     assert(options_user.fsize == 1024);
+
+    static_assert(!args.has(kwords.help), "");
+    assert(!args.has(kwords.help));
+
+    static_assert(!args.has(kwords.version), "");
+    assert(!args.has(kwords.version));
 
     return true;
 }
@@ -192,16 +213,24 @@ bool bind_to_functional_object() {
         return false;
     }
 
+    static_assert(args.has(kwords.fname), "");
     assert(args.has(kwords.fname));
     assert(args.is_set(kwords.fname));
     assert(args.get(kwords.fname) == "1.txt");
 
+    static_assert(args.has(kwords.fsize), "");
     assert(args.has(kwords.fsize));
     assert(args.is_set(kwords.fsize));
     assert(args.get(kwords.fsize) == 1024);
 
     assert(fname == "1.txt");
     assert(fsize == 1024);
+
+    static_assert(!args.has(kwords.help), "");
+    assert(!args.has(kwords.help));
+
+    static_assert(!args.has(kwords.version), "");
+    assert(!args.has(kwords.version));
 
     return true;
 }

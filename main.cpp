@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,12 +30,12 @@
 /*************************************************************************************************/
 
 struct kwords: justargs::kwords_group {
-    JUSTARGS_ADD_KEYWORD(fname, std::string, "source file name")
-    JUSTARGS_ADD_KEYWORD(fsize, std::size_t, "source file size")
-    JUSTARGS_ADD_KEYWORD(radius, double, "radius as double", optional)
-    JUSTARGS_ADD_KEYWORD(radius2, float, "radius as float", optional)
-    JUSTARGS_ADD_KEYWORD(poss, bool, "positive values only?", optional)
-    JUSTARGS_ADD_KEYWORD(ptr , int*, "the result of jod", optional)
+    JUSTARGS_OPTION(fname, std::string, "source file name")
+    JUSTARGS_OPTION(fsize, std::size_t, "source file size")
+    JUSTARGS_OPTION(radius, double, "radius as double", optional)
+    JUSTARGS_OPTION(radius2, float, "radius as float", optional)
+    JUSTARGS_OPTION(poss, bool, "positive values only?", optional)
+    JUSTARGS_OPTION(ptr , int*, "the result of a jod", optional)
 } const kwords;
 
 /*************************************************************************************************/
@@ -53,10 +53,10 @@ void myfunc(Args && ...args) {
 
 /*************************************************************************************************/
 
-int main(int argc, char **argv) {
+int main(int, char **argv) {
     auto set = justargs::make_args(
          kwords.fname = "file.txt"
-        ,kwords.fsize = 1024
+        ,kwords.fsize = 1024u
         ,kwords.radius = 3.14156
         ,kwords.radius2 = 3.14156f
         ,kwords.poss = true
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
     assert(set.get(kwords.fname, std::string("file.txt")) == "file.txt");
 
     std::string fname;
-    set.bind(kwords.fname, fname);
+    set.bind(kwords.fname, &fname);
 
     set.set(kwords.fname, std::string{"file1.txt"});
     assert(fname == "file1.txt");
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
 
     std::cout << "settings::for_each():" << std::endl;
     set.for_each(
-        [](const auto &t, const auto &v){ std::cout << "0: " << t.name() << ": " << v << std::endl; }
+         [](const auto &t, const auto &v){ std::cout << "0: " << t.name() << ": " << v.value() << std::endl; }
     );
 
     set.for_each(
@@ -134,20 +134,45 @@ int main(int argc, char **argv) {
 
     std::cout << "myfunc():" << std::endl;
     int vv = 33;
-    myfunc(kwords.fname = "fname-1", kwords.fsize = 1024, kwords.ptr = &vv);
-    myfunc(kwords.ptr = &vv, kwords.fsize = 1024*2, kwords.fname = "fname-2");
+    myfunc(kwords.fname = "fname-1", kwords.fsize = 1024u, kwords.ptr = &vv);
+    myfunc(kwords.ptr = &vv, kwords.fsize = 1024u*2, kwords.fname = "fname-2");
     std::cout << std::endl << std::endl;
 
     {
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+        int margc = 5;
+        char * const margv[] = {
+             "justargs-test"
+            ,"--fname=1.txt"
+            ,"--fsize=1024"
+            ,"--poss=false"
+            ,"--ptr=43"
+        };
+    #pragma GCC diagnostic pop
         bool ok = false;
         std::string emsg;
-        auto args = justargs::parse_args(&ok, &emsg, argc, argv, kwords.fname, kwords.fsize, kwords.poss, kwords.ptr);
+        auto args = justargs::parse_args(
+             &ok
+            ,&emsg
+            ,margc
+            ,margv
+            ,kwords.fname
+            ,kwords.fsize
+            ,kwords.poss
+        );
+
         if ( !ok ) {
             std::cout << "parse args test 1 error: " << emsg << std::endl;
         } else {
             const std::string fname = args.get(kwords.fname);
+            assert(fname == "1.txt");
+
             const std::size_t fsize = args.get(kwords.fsize);
+            assert(fsize == 1024);
+
             const bool fpos = args.get(kwords.poss);
+            assert(fpos == false);
 
             justargs::to_file(std::cout, args);
         }
@@ -155,7 +180,7 @@ int main(int argc, char **argv) {
     {
         justargs::args<kwords::fname_t, kwords::fsize_t, kwords::poss_t> set{
              kwords.fname = "file1.txt"
-            ,kwords.fsize = 1032
+            ,kwords.fsize = 1032u
             ,kwords.poss = true
         };
 
@@ -170,13 +195,15 @@ int main(int argc, char **argv) {
         std::string emsg;
         auto set2 = justargs::from_file(&ok, &emsg, ss, kwords.fname, kwords.fsize, kwords.poss);
 
-        std::cout << "after from_file:\n";
+        std::cout << "after from_file:" << std::endl;
         std::cout << set2 << std::endl;
 
+        std::cout << "show_help(set2):" << std::endl;
         justargs::show_help(std::cout, argv[0], set2);
 
         std::cout << std::endl;
 
+        std::cout << "kwords.show_help():" << std::endl;
         kwords.show_help(std::cout, argv[0]);
     }
 }

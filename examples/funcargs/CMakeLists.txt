@@ -3,10 +3,10 @@ project(funcargs)
 
 set (CMAKE_CXX_STANDARD 14)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra") # -fsanitize=address
+
 if( CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG -std=c++14 -Wall -Wextra") # -fsanitize=address
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra") # -fsanitize=address
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG")
 endif()
 
 add_definitions(

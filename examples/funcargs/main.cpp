@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
 // This file is part of JustArgs(github.com/niXman/justargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +30,7 @@
 
 /*************************************************************************************************/
 
-struct {
+struct: justargs::kwords_group {
     JUSTARGS_OPTION(fname, std::string, "source file name")
     JUSTARGS_OPTION(fsize, std::size_t, "source file size", optional)
     JUSTARGS_OPTION_HELP()

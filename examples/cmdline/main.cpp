@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
 // This file is part of JustArgs(github.com/niXman/justargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,9 +30,12 @@
 
 /*************************************************************************************************/
 
-struct {
+enum e_mode { read, write };
+
+struct: justargs::kwords_group {
     JUSTARGS_OPTION(fname, std::string, "source file name")
     JUSTARGS_OPTION(fsize, std::size_t, "source file size", optional)
+    JUSTARGS_OPTION(fmode, e_mode     , "source file mode", optional)
     JUSTARGS_OPTION_HELP()
     JUSTARGS_OPTION_VERSION()
 } const kwords;
@@ -47,6 +50,7 @@ int main(int argc, char *const *argv) {
         ,argv
         ,kwords.fname
         ,kwords.fsize
+        ,kwords.fmode
         ,kwords.help
         ,kwords.version
     );
@@ -55,6 +59,7 @@ int main(int argc, char *const *argv) {
 
         return EXIT_FAILURE;
     }
+    args.dump(std::cout, false);
 
     if ( args.is_set(kwords.help) ) {
         justargs::show_help(std::cout, argv[0], args);

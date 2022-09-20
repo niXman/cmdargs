@@ -5,7 +5,7 @@ Initially this library was created as a concept for implementing named function 
 
 ```cpp
 // declaring key-words
-struct kwords: justargs::kwords_group {
+struct: justargs::kwords_group {
     JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
     JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
 } const kwords;
@@ -35,7 +35,7 @@ int main() {
 ```cpp
 int main(int argc, char **argv) {
     // declaring key-words
-    struct kwords: justargs::kwords_group {
+    struct: justargs::kwords_group {
         JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
         JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
     } const kwords;
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 ```cpp
 int main(int argc, char **argv) {
     // declaring key-words
-    struct kwords: justargs::kwords_group {
+    struct: justargs::kwords_group {
         JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
         JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
     } const kwords;
@@ -89,7 +89,7 @@ for all the keywords:
 ```cpp
 int main(int argc, char **argv) {
     // declaring key-words
-    struct kwords: justargs::kwords_group {
+    struct: justargs::kwords_group {
         JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
         JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
     } const kwords;
@@ -101,7 +101,7 @@ for selected keywords only:
 ```cpp
 int main(int argc, char **argv) {
     // declaring key-words
-    struct kwords: justargs::kwords_group {
+    struct: justargs::kwords_group {
         JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
         JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
     } const kwords;
