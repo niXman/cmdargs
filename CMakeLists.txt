@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 2.8)
-project(justargs)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra") # -fsanitize=address
+project(justargs LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -save-temps") # -fsanitize=address
 
 add_definitions(
     -UNDEBUG

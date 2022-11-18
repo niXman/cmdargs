@@ -29,13 +29,15 @@
 
 /*************************************************************************************************/
 
-struct kwords: justargs::kwords_group {
-    JUSTARGS_OPTION(fname, std::string, "source file name")
-    JUSTARGS_OPTION(fsize, std::size_t, "source file size")
-    JUSTARGS_OPTION(radius, double, "radius as double", optional)
-    JUSTARGS_OPTION(radius2, float, "radius as float", optional)
-    JUSTARGS_OPTION(poss, bool, "positive values only?", optional)
-    JUSTARGS_OPTION(ptr , int*, "the result of a jod", optional)
+struct kw: justargs::kwords_group<kw> {
+    JUSTARGS_OPTION(fname, std::string, "source file name");
+    JUSTARGS_OPTION(fsize, std::size_t, "source file size");
+    JUSTARGS_OPTION(radius, double, "radius as double", optional);
+    JUSTARGS_OPTION(radius2, float, "radius as float", optional);
+    JUSTARGS_OPTION(poss, bool, "positive values only?", optional);
+    JUSTARGS_OPTION(ptr , int*, "the result of a job", optional);
+    JUSTARGS_OPTION_HELP();
+    JUSTARGS_OPTION_VERSION();
 } const kwords;
 
 /*************************************************************************************************/
@@ -90,7 +92,7 @@ int main(int, char **argv) {
 
     std::cout << "settings::for_each():" << std::endl;
     set.for_each(
-         [](const auto &t, const auto &v){ std::cout << "0: " << t.name() << ": " << v.value() << std::endl; }
+         [](const auto &t, const auto &v){ std::cout << "0: " << t.name() << ": " << v << std::endl; }
     );
 
     set.for_each(
@@ -178,7 +180,7 @@ int main(int, char **argv) {
         }
     }
     {
-        justargs::args<kwords::fname_t, kwords::fsize_t, kwords::poss_t> set{
+        justargs::args<kw::fname_t, kw::fsize_t, kw::poss_t> set{
              kwords.fname = "file1.txt"
             ,kwords.fsize = 1032u
             ,kwords.poss = true
@@ -205,6 +207,32 @@ int main(int, char **argv) {
 
         std::cout << "kwords.show_help():" << std::endl;
         kwords.show_help(std::cout, argv[0]);
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        int margc = 5;
+        char * const margv[] = {
+             "justargs-test"
+            ,"--fname=1.txt"
+            ,"--fsize=1024"
+            ,"--poss=false"
+            ,"--ptr=43"
+        };
+        #pragma GCC diagnostic pop
+
+        bool ok = false;
+        std::string emsg;
+        auto args = justargs::parse_args(
+             &ok
+            ,&emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+        static_assert(args.size() == 8, "");
+        std::cout << "constructed from kword:" << std::endl;
+        justargs::show_help(std::cout, margv[0], args);
     }
 }
 

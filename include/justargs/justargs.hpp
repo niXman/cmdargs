@@ -36,9 +36,10 @@
 #include <vector>
 #include <tuple>
 #include <array>
-#include <type_traits>
-#include <functional>
 #include <string>
+#include <type_traits>
+#include <typeindex>
+#include <functional>
 #include <stdexcept>
 
 #include <cassert>
@@ -105,7 +106,20 @@ struct optional_type {
 namespace justargs {
 
 template<typename T>
-using optional_type = std::optional<T>;
+struct optional_type: std::optional<T> {
+    using std::optional<T>::operator=;
+};
+
+template<typename T>
+inline std::ostream& operator<< (std::ostream &os, const optional_type<T> &v) {
+    if ( v ) {
+        os << v.value();
+    } else {
+        os << "<UNINITIALIZED>";
+    }
+
+    return os;
+}
 
 } // ns justargs
 
@@ -115,13 +129,22 @@ using optional_type = std::optional<T>;
 
 namespace justargs {
 
+template<typename D>
 struct kwords_group;
 
 template<typename ...>
 struct args;
 
 template<typename Iter, typename ...Args>
-auto parse_kv_list(bool *ok, std::string *emsg, const char *pref, std::size_t pref_len, Iter beg, Iter end, args<Args...> &set);
+auto parse_kv_list(
+     bool *ok
+    ,std::string *emsg
+    ,const char *pref
+    ,std::size_t pref_len
+    ,Iter beg
+    ,Iter end
+    ,args<Args...> &set
+);
 
 namespace details {
 
@@ -424,15 +447,33 @@ private:
     const char *m_descr;
 };
 
-struct kwords_group {
+struct kwords_group_base {};
+
+template<typename D>
+struct kwords_group: kwords_group_base {
+    using options_map_type = std::map<
+         std::string
+        ,const option_base *
+    >;
+    using options_group_type = std::map<
+         std::type_index
+        ,options_map_type
+    >;
+
+    static options_map_type& options() {
+        const std::type_index idx{typeid(D)};
+        static options_group_type map;
+        return map[idx];
+    }
+
     void add(const option_base *s) {
-        options.emplace(s->name(), s);
+        options().emplace(s->name(), s);
     }
 
     template<typename T>
     bool is_required() const {
-        const auto it = options.find(T::__name());
-        if ( it == options.end() ) return false;
+        const auto it = options().find(T::__name());
+        if ( it == options().end() ) return false;
         return it->second.is_required();
     }
 
@@ -442,12 +483,12 @@ struct kwords_group {
         << (p ? p+1 : "program") << ":" << std::endl;
 
         std::size_t max_len = 0;
-        for ( const auto &it: options) {
+        for ( const auto &it: options() ) {
             std::size_t len = it.first.length();
             max_len = (len > max_len) ? len : max_len;
         }
 
-        for ( const auto &it: options ) {
+        for ( const auto &it: options() ) {
             static const char filler[] = "                                        ";
             const auto &name = it.first;
             std::size_t len = name.length();
@@ -462,8 +503,6 @@ struct kwords_group {
 
         return os;
     }
-
-    std::map<std::string, const option_base *> options;
 };
 
 /*************************************************************************************************/
@@ -554,6 +593,139 @@ struct filter<Out, std::tuple<>> {
 
 template <typename T>
 using without_duplicates = typename filter<std::tuple<>, T>::type;
+
+struct any_type { template<class T> constexpr operator T(); };
+
+#if defined(__GNUC__) && !defined(__clang__)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#elif defined(__clang__)
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#endif
+
+template<class T, std::size_t... I>
+decltype(void(T{(I, std::declval<any_type>())...}), std::true_type{})
+    test_is_braces_constructible_n(std::index_sequence<I...>);
+
+#if defined(__GNUC__) && !defined(__clang__)
+#   pragma GCC diagnostic pop
+#elif defined(__clang__)
+#   pragma clang diagnostic pop
+#endif
+
+template <class, class...>
+std::false_type test_is_braces_constructible_n(...);
+
+template <class T, std::size_t N>
+using is_braces_constructible_n =
+    decltype(test_is_braces_constructible_n<T>(std::make_index_sequence<N>{}));
+
+template<class T, std::size_t L = 0u, std::size_t R = sizeof(T) + 1u>
+constexpr std::size_t to_tuple_size_impl() {
+    constexpr std::size_t M = (L + R) / 2u;
+    return (M == 0)
+        ? std::is_empty<T>{}
+            ? 0u
+            : throw "Unable to determine number of elements"
+        : (L == M)
+            ? M
+            : is_braces_constructible_n<T, M>{}
+                ? to_tuple_size_impl<T, M, R>()
+                : to_tuple_size_impl<T, L, M>()
+    ;
+}
+
+template<typename T>
+using to_tuple_size = std::integral_constant<std::size_t, to_tuple_size_impl<T>()-1>;
+
+#ifndef __JUSTARGS_TO_TUPLE_MAX
+#define __JUSTARGS_TO_TUPLE_MAX 20
+#endif
+
+template<typename T>
+auto to_tuple_impl(const T &, std::integral_constant<std::size_t, 0>) {
+    return std::make_tuple();
+}
+
+#define __JUSTARGS_REPEAT_0(macro, data)
+#define __JUSTARGS_REPEAT_1(macro, data) \
+    macro(0, data)
+#define __JUSTARGS_REPEAT_2(macro, data) \
+    __JUSTARGS_REPEAT_1(macro, data) macro(1, data)
+#define __JUSTARGS_REPEAT_3(macro, data) \
+    __JUSTARGS_REPEAT_2(macro, data) macro(2, data)
+#define __JUSTARGS_REPEAT_4(macro, data) \
+    __JUSTARGS_REPEAT_3(macro, data) macro(3, data)
+#define __JUSTARGS_REPEAT_5(macro, data) \
+    __JUSTARGS_REPEAT_4(macro, data) macro(4, data)
+#define __JUSTARGS_REPEAT_6(macro, data) \
+    __JUSTARGS_REPEAT_5(macro, data) macro(5, data)
+#define __JUSTARGS_REPEAT_7(macro, data) \
+    __JUSTARGS_REPEAT_6(macro, data) macro(6, data)
+#define __JUSTARGS_REPEAT_8(macro, data) \
+    __JUSTARGS_REPEAT_7(macro, data) macro(7, data)
+#define __JUSTARGS_REPEAT_9(macro, data) \
+    __JUSTARGS_REPEAT_8(macro, data) macro(8, data)
+#define __JUSTARGS_REPEAT_10(macro, data) \
+    __JUSTARGS_REPEAT_9(macro, data) macro(9, data)
+#define __JUSTARGS_REPEAT_11(macro, data) \
+    __JUSTARGS_REPEAT_10(macro, data) macro(10, data)
+#define __JUSTARGS_REPEAT_12(macro, data) \
+    __JUSTARGS_REPEAT_11(macro, data) macro(11, data)
+#define __JUSTARGS_REPEAT_13(macro, data) \
+    __JUSTARGS_REPEAT_12(macro, data) macro(12, data)
+#define __JUSTARGS_REPEAT_14(macro, data) \
+    __JUSTARGS_REPEAT_13(macro, data) macro(13, data)
+#define __JUSTARGS_REPEAT_15(macro, data) \
+    __JUSTARGS_REPEAT_14(macro, data) macro(14, data)
+#define __JUSTARGS_REPEAT_16(macro, data) \
+    __JUSTARGS_REPEAT_15(macro, data) macro(15, data)
+#define __JUSTARGS_REPEAT_17(macro, data) \
+    __JUSTARGS_REPEAT_16(macro, data) macro(16, data)
+#define __JUSTARGS_REPEAT_18(macro, data) \
+    __JUSTARGS_REPEAT_17(macro, data) macro(17, data)
+#define __JUSTARGS_REPEAT_19(macro, data) \
+    __JUSTARGS_REPEAT_18(macro, data) macro(18, data)
+#define __JUSTARGS_REPEAT_20(macro, data) \
+    __JUSTARGS_REPEAT_19(macro, data) macro(19, data)
+
+#define __JUSTARGS_REPEAT_IMPL(start_macro, macro, data) \
+    start_macro(macro, data)
+#define __JUSTARGS_REPEAT(n, macro, data) \
+    __JUSTARGS_REPEAT_IMPL(__JUSTARGS_CAT(__JUSTARGS_REPEAT_, n), macro, data)
+
+#define __JUSTARGS_TO_TUPLE_P(idx, data) , p##idx
+#define __JUSTARGS_TO_TUPLE_SPECIALIZATION(idx, data) \
+    template<typename T> \
+    auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, idx + 1>) { \
+        const auto& [p __JUSTARGS_REPEAT_##idx(__JUSTARGS_TO_TUPLE_P, data)] = object; \
+        return std::make_tuple(p __JUSTARGS_REPEAT_##idx(__JUSTARGS_TO_TUPLE_P, data)); \
+    }
+
+__JUSTARGS_REPEAT(__JUSTARGS_TO_TUPLE_MAX, __JUSTARGS_TO_TUPLE_SPECIALIZATION, ~)
+
+#undef __JUSTARGS_TO_TUPLE_SPECIALIZATION
+#undef __JUSTARGS_TO_TUPLE_P
+
+template<
+     typename T
+    ,typename = struct current_value
+    ,std::size_t = __JUSTARGS_TO_TUPLE_MAX
+    ,typename = struct required_value
+    ,std::size_t N
+>
+auto to_tuple_impl(const T &, std::integral_constant<std::size_t, N>) {
+    static_assert(N <= __JUSTARGS_TO_TUPLE_MAX, "Please increase __JUSTARGS_TO_TUPLE_MAX");
+}
+
+template<
+     typename T
+    ,typename = std::enable_if_t<std::is_class<T>::value>
+>
+auto to_tuple(const T &kw) {
+    return to_tuple_impl(kw, to_tuple_size<std::decay_t<T>>{});
+}
 
 } // ns details
 
@@ -719,7 +891,15 @@ struct args {
 
 private:
     template<typename Iter, typename ...TArgs>
-    friend auto parse_kv_list(bool *ok, std::string *emsg, const char *pref, std::size_t pref_len, Iter beg, Iter end, args<TArgs...> &set);
+    friend auto parse_kv_list(
+         bool *ok
+        ,std::string *emsg
+        ,const char *pref
+        ,std::size_t pref_len
+        ,Iter beg
+        ,Iter end
+        ,args<TArgs...> &set
+    );
 
     const char* check_for_unexpected(const char *optname) const {
         const char *ptr = nullptr;
@@ -807,7 +987,15 @@ private:
 /*************************************************************************************************/
 
 template<typename Iter, typename ...Args>
-auto parse_kv_list(bool *ok, std::string *emsg, const char *pref, std::size_t pref_len, Iter beg, Iter end, args<Args...> &set) {
+auto parse_kv_list(
+     bool *ok
+    ,std::string *emsg
+    ,const char *pref
+    ,std::size_t pref_len
+    ,Iter beg
+    ,Iter end
+    ,args<Args...> &set)
+{
     for ( ; beg != end; ++beg ) {
         if ( pref ) {
             if ( std::strncmp(*beg, pref, pref_len) != 0 ) {
@@ -930,13 +1118,43 @@ auto make_args(Args && ...args) {
 
 /*************************************************************************************************/
 
-template<typename ...Args>
+template<
+     typename ...Args
+    ,typename = typename std::enable_if<
+        sizeof...(Args) != 1 && !std::is_base_of<
+             kwords_group_base
+            ,typename std::tuple_element<0, std::tuple<Args...>>::type
+        >::value
+    >::type
+>
 auto parse_args(bool *ok, std::string *emsg, int argc, char* const* argv, Args && ...kwords) {
     char *const *beg = argv+1;
     char *const *end = argv+argc;
     args<typename std::decay<Args>::type...> set{std::forward<Args>(kwords)...};
 
     return parse_kv_list(ok, emsg, "--", 2, beg, end, set);
+}
+
+template<typename ...Args>
+auto parse_args(bool *ok, std::string *emsg, int argc, char* const* argv, const std::tuple<Args...> &kwords) {
+    char *const *beg = argv+1;
+    char *const *end = argv+argc;
+    args<typename std::decay<Args>::type...> set{std::get<Args>(kwords)...};
+
+    return parse_kv_list(ok, emsg, "--", 2, beg, end, set);
+}
+
+template<
+     typename KWords
+    ,typename = typename std::enable_if<
+        std::is_class<KWords>::value &&
+        std::is_base_of<kwords_group_base, KWords>::value
+    >::type
+>
+auto parse_args(bool *ok, std::string *emsg, int argc, char* const* argv, const KWords &kw) {
+    const auto &tuple = details::to_tuple(kw);
+
+    return parse_args(ok, emsg, argc, argv, tuple);
 }
 
 namespace {
