@@ -108,18 +108,18 @@ namespace justargs {
 template<typename T>
 struct optional_type: std::optional<T> {
     using std::optional<T>::operator=;
-};
+    using std::optional<T>::operator bool;
 
-template<typename T>
-inline std::ostream& operator<< (std::ostream &os, const optional_type<T> &v) {
-    if ( v ) {
-        os << v.value();
-    } else {
-        os << "<UNINITIALIZED>";
+    friend std::ostream& operator<< (std::ostream &os, const optional_type &v) {
+        if ( v ) {
+            os << v.value();
+        } else {
+            os << "<UNINITIALIZED>";
+        }
+
+        return os;
     }
-
-    return os;
-}
+};
 
 } // ns justargs
 
@@ -128,24 +128,6 @@ inline std::ostream& operator<< (std::ostream &os, const optional_type<T> &v) {
 /*************************************************************************************************/
 
 namespace justargs {
-
-template<typename D>
-struct kwords_group;
-
-template<typename ...>
-struct args;
-
-template<typename Iter, typename ...Args>
-auto parse_kv_list(
-     bool *ok
-    ,std::string *emsg
-    ,const char *pref
-    ,std::size_t pref_len
-    ,Iter beg
-    ,Iter end
-    ,args<Args...> &set
-);
-
 namespace details {
 
 inline void ltrim(std::string &s, const char* t = " \t\n\r") {
@@ -193,7 +175,10 @@ from_string_impl(T *val, const char *ptr, std::size_t len) {
 }
 
 template<typename T>
-typename std::enable_if_t<std::is_integral<T>::value && !std::is_same<T, bool>::value>
+typename std::enable_if_t<
+    std::is_integral<T>::value
+        && !std::is_same<T, bool>::value
+>
 from_string_impl(T *val, const char *ptr, std::size_t len) {
     constexpr const char *fmt = (
         std::is_unsigned<T>::value
@@ -274,6 +259,59 @@ from_string_impl(T *val, const char *, std::size_t) {
         __JUSTARGS_HAS_COMMA(__VA_ARGS__ (/*empty*/)), \
         __JUSTARGS_HAS_COMMA(__JUSTARGS_TRIGGER_PARENTHESIS_ __VA_ARGS__ (/*empty*/)) \
     )
+
+/*************************************************************************************************/
+
+#ifndef __JUSTARGS_TO_TUPLE_MAX
+#define __JUSTARGS_TO_TUPLE_MAX 20
+#endif
+
+#define __JUSTARGS_REPEAT_0(macro, data)
+#define __JUSTARGS_REPEAT_1(macro, data) \
+    macro(0, data)
+#define __JUSTARGS_REPEAT_2(macro, data) \
+    __JUSTARGS_REPEAT_1(macro, data) macro(1, data)
+#define __JUSTARGS_REPEAT_3(macro, data) \
+    __JUSTARGS_REPEAT_2(macro, data) macro(2, data)
+#define __JUSTARGS_REPEAT_4(macro, data) \
+    __JUSTARGS_REPEAT_3(macro, data) macro(3, data)
+#define __JUSTARGS_REPEAT_5(macro, data) \
+    __JUSTARGS_REPEAT_4(macro, data) macro(4, data)
+#define __JUSTARGS_REPEAT_6(macro, data) \
+    __JUSTARGS_REPEAT_5(macro, data) macro(5, data)
+#define __JUSTARGS_REPEAT_7(macro, data) \
+    __JUSTARGS_REPEAT_6(macro, data) macro(6, data)
+#define __JUSTARGS_REPEAT_8(macro, data) \
+    __JUSTARGS_REPEAT_7(macro, data) macro(7, data)
+#define __JUSTARGS_REPEAT_9(macro, data) \
+    __JUSTARGS_REPEAT_8(macro, data) macro(8, data)
+#define __JUSTARGS_REPEAT_10(macro, data) \
+    __JUSTARGS_REPEAT_9(macro, data) macro(9, data)
+#define __JUSTARGS_REPEAT_11(macro, data) \
+    __JUSTARGS_REPEAT_10(macro, data) macro(10, data)
+#define __JUSTARGS_REPEAT_12(macro, data) \
+    __JUSTARGS_REPEAT_11(macro, data) macro(11, data)
+#define __JUSTARGS_REPEAT_13(macro, data) \
+    __JUSTARGS_REPEAT_12(macro, data) macro(12, data)
+#define __JUSTARGS_REPEAT_14(macro, data) \
+    __JUSTARGS_REPEAT_13(macro, data) macro(13, data)
+#define __JUSTARGS_REPEAT_15(macro, data) \
+    __JUSTARGS_REPEAT_14(macro, data) macro(14, data)
+#define __JUSTARGS_REPEAT_16(macro, data) \
+    __JUSTARGS_REPEAT_15(macro, data) macro(15, data)
+#define __JUSTARGS_REPEAT_17(macro, data) \
+    __JUSTARGS_REPEAT_16(macro, data) macro(16, data)
+#define __JUSTARGS_REPEAT_18(macro, data) \
+    __JUSTARGS_REPEAT_17(macro, data) macro(17, data)
+#define __JUSTARGS_REPEAT_19(macro, data) \
+    __JUSTARGS_REPEAT_18(macro, data) macro(18, data)
+#define __JUSTARGS_REPEAT_20(macro, data) \
+    __JUSTARGS_REPEAT_19(macro, data) macro(19, data)
+
+#define __JUSTARGS_REPEAT_IMPL(start_macro, macro, data) \
+    start_macro(macro, data)
+#define __JUSTARGS_REPEAT(n, macro, data) \
+    __JUSTARGS_REPEAT_IMPL(__JUSTARGS_CAT(__JUSTARGS_REPEAT_, n), macro, data)
 
 /*************************************************************************************************/
 
@@ -407,7 +445,7 @@ from_string_impl(T *val, const char *, std::size_t) {
 
 #define JUSTARGS_OPTION(OPT_NAME, OPT_TYPE, DESCRIPTION, ...) \
     JUSTARGS_OPTION_DECLARE(OPT_NAME, OPT_TYPE, __VA_ARGS__) \
-    const __JUSTARGS_CAT(OPT_NAME, _t) OPT_NAME{ \
+    __JUSTARGS_CAT(OPT_NAME, _t) const OPT_NAME{ \
          this \
         ,__JUSTARGS_STRINGIZE(OPT_NAME) \
         ,__JUSTARGS_STRINGIZE(OPT_TYPE) \
@@ -508,6 +546,12 @@ struct kwords_group: kwords_group_base {
 /*************************************************************************************************/
 
 namespace details {
+
+struct optional_bool_printer {
+    static void print(std::ostream &os, const optional_type<bool> &v) { os << (v.value() ? "true" : "false"); }
+    template<typename T>
+    static void print(std::ostream &os, const optional_type<T> &v) { os << v.value(); }
+};
 
 // is callable
 template<typename F>
@@ -639,61 +683,10 @@ constexpr std::size_t to_tuple_size_impl() {
 template<typename T>
 using to_tuple_size = std::integral_constant<std::size_t, to_tuple_size_impl<T>()-1>;
 
-#ifndef __JUSTARGS_TO_TUPLE_MAX
-#define __JUSTARGS_TO_TUPLE_MAX 20
-#endif
-
 template<typename T>
 auto to_tuple_impl(const T &, std::integral_constant<std::size_t, 0>) {
     return std::make_tuple();
 }
-
-#define __JUSTARGS_REPEAT_0(macro, data)
-#define __JUSTARGS_REPEAT_1(macro, data) \
-    macro(0, data)
-#define __JUSTARGS_REPEAT_2(macro, data) \
-    __JUSTARGS_REPEAT_1(macro, data) macro(1, data)
-#define __JUSTARGS_REPEAT_3(macro, data) \
-    __JUSTARGS_REPEAT_2(macro, data) macro(2, data)
-#define __JUSTARGS_REPEAT_4(macro, data) \
-    __JUSTARGS_REPEAT_3(macro, data) macro(3, data)
-#define __JUSTARGS_REPEAT_5(macro, data) \
-    __JUSTARGS_REPEAT_4(macro, data) macro(4, data)
-#define __JUSTARGS_REPEAT_6(macro, data) \
-    __JUSTARGS_REPEAT_5(macro, data) macro(5, data)
-#define __JUSTARGS_REPEAT_7(macro, data) \
-    __JUSTARGS_REPEAT_6(macro, data) macro(6, data)
-#define __JUSTARGS_REPEAT_8(macro, data) \
-    __JUSTARGS_REPEAT_7(macro, data) macro(7, data)
-#define __JUSTARGS_REPEAT_9(macro, data) \
-    __JUSTARGS_REPEAT_8(macro, data) macro(8, data)
-#define __JUSTARGS_REPEAT_10(macro, data) \
-    __JUSTARGS_REPEAT_9(macro, data) macro(9, data)
-#define __JUSTARGS_REPEAT_11(macro, data) \
-    __JUSTARGS_REPEAT_10(macro, data) macro(10, data)
-#define __JUSTARGS_REPEAT_12(macro, data) \
-    __JUSTARGS_REPEAT_11(macro, data) macro(11, data)
-#define __JUSTARGS_REPEAT_13(macro, data) \
-    __JUSTARGS_REPEAT_12(macro, data) macro(12, data)
-#define __JUSTARGS_REPEAT_14(macro, data) \
-    __JUSTARGS_REPEAT_13(macro, data) macro(13, data)
-#define __JUSTARGS_REPEAT_15(macro, data) \
-    __JUSTARGS_REPEAT_14(macro, data) macro(14, data)
-#define __JUSTARGS_REPEAT_16(macro, data) \
-    __JUSTARGS_REPEAT_15(macro, data) macro(15, data)
-#define __JUSTARGS_REPEAT_17(macro, data) \
-    __JUSTARGS_REPEAT_16(macro, data) macro(16, data)
-#define __JUSTARGS_REPEAT_18(macro, data) \
-    __JUSTARGS_REPEAT_17(macro, data) macro(17, data)
-#define __JUSTARGS_REPEAT_19(macro, data) \
-    __JUSTARGS_REPEAT_18(macro, data) macro(18, data)
-#define __JUSTARGS_REPEAT_20(macro, data) \
-    __JUSTARGS_REPEAT_19(macro, data) macro(19, data)
-
-#define __JUSTARGS_REPEAT_IMPL(start_macro, macro, data) \
-    start_macro(macro, data)
-#define __JUSTARGS_REPEAT(n, macro, data) \
-    __JUSTARGS_REPEAT_IMPL(__JUSTARGS_CAT(__JUSTARGS_REPEAT_, n), macro, data)
 
 #define __JUSTARGS_TO_TUPLE_P(idx, data) , p##idx
 #define __JUSTARGS_TO_TUPLE_SPECIALIZATION(idx, data) \
@@ -704,9 +697,6 @@ auto to_tuple_impl(const T &, std::integral_constant<std::size_t, 0>) {
     }
 
 __JUSTARGS_REPEAT(__JUSTARGS_TO_TUPLE_MAX, __JUSTARGS_TO_TUPLE_SPECIALIZATION, ~)
-
-#undef __JUSTARGS_TO_TUPLE_SPECIALIZATION
-#undef __JUSTARGS_TO_TUPLE_P
 
 template<
      typename T
@@ -1157,16 +1147,6 @@ auto parse_args(bool *ok, std::string *emsg, int argc, char* const* argv, const 
     return parse_args(ok, emsg, argc, argv, tuple);
 }
 
-namespace {
-
-struct proxy_printer {
-    static void print(std::ostream &os, const optional_type<bool> &v) { os << (v.value() ? "true" : "false"); }
-    template<typename T>
-    static void print(std::ostream &os, const optional_type<T> &v) { os << v.value(); }
-};
-
-} // anon ns
-
 template<typename ...Args>
 std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_only = true) {
     set.for_each(
@@ -1174,7 +1154,7 @@ std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_on
             os << "# " << t.description() << std::endl;
             os << t.name() << "=";
             if ( opt ) {
-                proxy_printer::print(os, opt);
+                details::optional_bool_printer::print(os, opt);
             }
             os << std::endl;
         }

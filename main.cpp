@@ -231,8 +231,28 @@ int main(int, char **argv) {
             ,kwords
         );
         static_assert(args.size() == 8, "");
+
+        static_assert(args.has(kwords.fname), "");
+        static_assert(args.has(kwords.fsize), "");
+        static_assert(args.has(kwords.radius), "");
+        static_assert(args.has(kwords.radius2), "");
+        static_assert(args.has(kwords.poss), "");
+        static_assert(args.has(kwords.ptr), "");
+        static_assert(args.has(kwords.help), "");
+        static_assert(args.has(kwords.version), "");
+
+        assert(args.is_set(kwords.fname));
+        assert(args.is_set(kwords.fsize));
+        assert(!args.is_set(kwords.radius));
+        assert(!args.is_set(kwords.radius2));
+        assert(args.is_set(kwords.poss));
+        assert(args.is_set(kwords.ptr));
+        assert(!args.is_set(kwords.help));
+        assert(!args.is_set(kwords.version));
+
         std::cout << "constructed from kword:" << std::endl;
-        justargs::show_help(std::cout, margv[0], args);
+        args.dump(std::cout);
+        //justargs::show_help(std::cout, margv[0], args);
     }
 }
 
