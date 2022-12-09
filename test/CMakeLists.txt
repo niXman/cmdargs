@@ -12,11 +12,11 @@ add_definitions(
 )
 
 include_directories(
-    ./include
+    ../include
 )
 
 set(SOURCES
-    include/cmdargs/cmdargs.hpp
+    ../include/cmdargs/cmdargs.hpp
     main.cpp
 )
 
