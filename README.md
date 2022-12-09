@@ -79,8 +79,6 @@ int main(int argc, char **argv) {
     }
 
     const auto fname = args.get(kwords.fname);
-
-    assert(args.is_set(kwords.fsize));
     const auto fsize = args.get(kwords.fsize);
 }
 ```
@@ -120,4 +118,5 @@ int main(int argc, char **argv) {
 
 # TODO
 - validators
+- converters
 - default values

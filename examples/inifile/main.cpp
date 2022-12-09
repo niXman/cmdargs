@@ -3,7 +3,7 @@
 // MIT License
 //
 // Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
-// This file is part of JustArgs(github.com/niXman/cmdargs) project.
+// This file is part of CmdArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
