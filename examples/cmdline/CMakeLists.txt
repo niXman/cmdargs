@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(cmdline)
 
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra") # -fsanitize=address
 
@@ -18,7 +18,7 @@ include_directories(
 )
 
 set(SOURCES
-    ../../include/justargs/justargs.hpp
+    ../../include/cmdargs/cmdargs.hpp
     main.cpp
 )
 

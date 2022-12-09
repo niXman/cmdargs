@@ -148,7 +148,9 @@ struct optional_type {
         return *this;
     }
 
-    explicit operator bool() const noexcept { return m_inited; }
+    explicit operator bool() const noexcept { return has_value(); }
+
+    bool has_value() const noexcept { return m_inited; }
 
     T& value() noexcept { return m_val; }
     const T& value() const noexcept { return m_val; }
@@ -500,6 +502,7 @@ auto to_tuple(const T &kw) {
         using optional_type = ::cmdargs::optional_type<value_type>; \
         using cond_list     = ::cmdargs::cond_list; \
         \
+        /* data members */ \
         bool m_required; \
         optional_type m_val; \
         std::vector<const char *> m_and_list{}; \
@@ -511,6 +514,18 @@ auto to_tuple(const T &kw) {
         \
         OPTION_TYPE_NAME(const OPTION_TYPE_NAME &r) = default; \
         OPTION_TYPE_NAME(OPTION_TYPE_NAME &&r) = default; \
+        \
+        template<typename T> \
+        OPTION_TYPE_NAME operator= (T &&v) const { \
+            OPTION_TYPE_NAME res; \
+            res.m_required = m_required; \
+            res.m_val      = std::forward<T>(v); \
+            res.m_and_list = m_and_list; \
+            res.m_or_list  = m_or_list; \
+            res.m_not_list = m_not_list; \
+            return res; \
+        } \
+        \
         /* default */ \
         OPTION_TYPE_NAME() \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
@@ -592,10 +607,10 @@ auto to_tuple(const T &kw) {
     /* var  */ CMDARGS_OPTION_INIT(OPTION_NAME, __VA_ARGS__)
 
 #define CMDARGS_OPTION_ADD_HELP() \
-    CMDARGS_OPTION(help, bool, "show help message", optional)
+    CMDARGS_OPTION_ADD(help, bool, "show help message", optional)
 
 #define CMDARGS_OPTION_ADD_VERSION() \
-    CMDARGS_OPTION(version, bool, "show version message", optional)
+    CMDARGS_OPTION_ADD(version, bool, "show version message", optional)
 
 /*************************************************************************************************/
 
@@ -809,16 +824,6 @@ struct args {
     void for_each(F &&f, bool inited_only = false) {
         for_each(m_kwords, std::forward<F>(f), inited_only);
     }
-//    template<typename ...Fs>
-//    void for_each(bool inited_only, Fs &&...fs) const {
-//        auto overloaded = details::make_overloaded(std::forward<Fs>(fs)...);
-//        for_each(m_kwords, overloaded, inited_only);
-//    }
-//    template<typename ...Fs>
-//    void for_each(bool inited_only, Fs &&...fs) {
-//        auto overloaded = details::make_overloaded(std::forward<Fs>(fs)...);
-//        for_each(m_kwords, overloaded, inited_only);
-//    }
 
     std::ostream& dump(std::ostream &os, bool inited_only = false) const {
         to_file(os, *this, inited_only);

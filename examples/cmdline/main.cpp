@@ -3,7 +3,7 @@
 // MIT License
 //
 // Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
-// This file is part of JustArgs(github.com/niXman/justargs) project.
+// This file is part of JustArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,7 @@
 // SOFTWARE.
 // ----------------------------------------------------------------------------
 
-#include <justargs/justargs.hpp>
+#include <cmdargs/cmdargs.hpp>
 
 #include <iostream>
 
@@ -32,20 +32,18 @@
 
 enum e_mode { read, write };
 
-struct: justargs::kwords_group {
-    JUSTARGS_OPTION(fname, std::string, "source file name")
-    JUSTARGS_OPTION(fsize, std::size_t, "source file size", optional)
-    JUSTARGS_OPTION(fmode, e_mode     , "source file mode", optional)
-    JUSTARGS_OPTION_HELP()
-    JUSTARGS_OPTION_VERSION()
+struct: cmdargs::kwords_group {
+    CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
+    CMDARGS_OPTION_ADD(fmode, e_mode     , "source file mode", optional);
+    CMDARGS_OPTION_ADD_HELP();
+    CMDARGS_OPTION_ADD_VERSION();
 } const kwords;
 
 int main(int argc, char *const *argv) {
-    bool ok{};
-    std::string error_message{};
-    const auto args = justargs::parse_args(
-         &ok
-        ,&error_message
+    std::string error_message;
+    const auto args = cmdargs::parse_args(
+         &error_message
         ,argc
         ,argv
         ,kwords.fname
@@ -54,7 +52,7 @@ int main(int argc, char *const *argv) {
         ,kwords.help
         ,kwords.version
     );
-    if ( !ok ) {
+    if ( !error_message.empty() ) {
         std::cerr << "command line parse error: " << error_message << std::endl;
 
         return EXIT_FAILURE;
@@ -62,7 +60,7 @@ int main(int argc, char *const *argv) {
     args.dump(std::cout, false);
 
     if ( args.is_set(kwords.help) ) {
-        justargs::show_help(std::cout, argv[0], args);
+        cmdargs::show_help(std::cout, argv[0], args);
 
         return EXIT_SUCCESS;
     }
@@ -72,9 +70,8 @@ int main(int argc, char *const *argv) {
         return EXIT_SUCCESS;
     }
 
-    if ( args.is_set(kwords.fname) ) {
-        std::cout << "fname=" << args.get(kwords.fname) << std::endl;
-    }
+    const auto &fname = args.get(kwords.fname);
+    std::cout << "fname=" << fname << std::endl;
     if ( args.is_set(kwords.fsize) ) {
         std::cout << "fsize=" << args.get(kwords.fsize) << std::endl;
     }
