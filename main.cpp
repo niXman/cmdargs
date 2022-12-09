@@ -1,5 +1,4 @@
 
-// ----------------------------------------------------------------------------
 // MIT License
 //
 // Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
@@ -23,237 +22,834 @@
 // SOFTWARE.
 // ----------------------------------------------------------------------------
 
-#include <justargs/justargs.hpp>
+#include <cmdargs/cmdargs.hpp>
 
 #include <iostream>
 
 /*************************************************************************************************/
 
-struct kw: justargs::kwords_group<kw> {
-    JUSTARGS_OPTION(fname, std::string, "source file name");
-    JUSTARGS_OPTION(fsize, std::size_t, "source file size");
-    JUSTARGS_OPTION(radius, double, "radius as double", optional);
-    JUSTARGS_OPTION(radius2, float, "radius as float", optional);
-    JUSTARGS_OPTION(poss, bool, "positive values only?", optional);
-    JUSTARGS_OPTION(ptr , int*, "the result of a job", optional);
-    JUSTARGS_OPTION_HELP();
-    JUSTARGS_OPTION_VERSION();
-} const kwords;
-
-/*************************************************************************************************/
-
-void myfunc_impl(const std::string &fname, std::size_t fsize, int *ptr) {
-    std::cout << "myfunc_impl(fname=" << fname << ", fsize=" << fsize << ", *ptr=" << *ptr << ")" << std::endl;
-    *ptr = 44;
-}
-
-template<typename ...Args>
-void myfunc(Args && ...args) {
-    const auto set = justargs::make_args(std::forward<Args>(args)...);
-    return myfunc_impl(set.get(kwords.fname), set.get(kwords.fsize), set.get(kwords.ptr));
+bool has_substring(const std::string &str, const char *substr) {
+    return std::strstr(str.data(), substr) != nullptr;
 }
 
 /*************************************************************************************************/
 
-int main(int, char **argv) {
-    auto set = justargs::make_args(
-         kwords.fname = "file.txt"
-        ,kwords.fsize = 1024u
-        ,kwords.radius = 3.14156
-        ,kwords.radius2 = 3.14156f
-        ,kwords.poss = true
-        ,kwords.ptr
-    );
+static void test_decl_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size");
+    } const kwords;
 
-    assert(set.has(kwords.fname));
-    assert(set.has(kwords.fsize));
-    assert(set.has(kwords.radius));
-    assert(set.has(kwords.radius2));
-    assert(set.has(kwords.poss));
-    assert(set.has(kwords.ptr));
+    assert(kwords.fname.is_required() == true);
+    assert(kwords.fname.is_optional() == false);
+    assert(kwords.fname.is_set() == false);
+    assert(kwords.fsize.is_required() == true);
+    assert(kwords.fsize.is_optional() == false);
+    assert(kwords.fsize.is_set() == false);
 
-    assert(set.is_set(kwords.fname));
-    assert(set.is_set(kwords.fsize));
-    assert(set.is_set(kwords.radius));
-    assert(set.is_set(kwords.radius2));
-    assert(set.is_set(kwords.poss));
-    assert(!set.is_set(kwords.ptr));
+    assert(kwords.fname.and_list().empty() == true);
+    assert(kwords.fname.or_list().empty() == true);
+    assert(kwords.fname.not_list().empty() == true);
+    assert(kwords.fsize.and_list().empty() == true);
+    assert(kwords.fsize.or_list().empty() == true);
+    assert(kwords.fsize.not_list().empty() == true);
+}
 
-    assert(set.get(kwords.fname) == "file.txt");
-    assert(set.get(kwords.fname, "file.txt") == "file.txt");
-    assert(set.get(kwords.fname, std::string("file.txt")) == "file.txt");
+static void test_decl_01() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size");
+    } const kwords;
 
-    std::string fname;
-    set.bind(kwords.fname, &fname);
+    assert(kwords.fname.is_required() == false);
+    assert(kwords.fname.is_optional() == true);
+    assert(kwords.fname.is_set() == false);
+    assert(kwords.fsize.is_required() == true);
+    assert(kwords.fsize.is_optional() == false);
+    assert(kwords.fsize.is_set() == false);
 
-    set.set(kwords.fname, std::string{"file1.txt"});
-    assert(fname == "file1.txt");
-    assert(set.get(kwords.fname) == "file1.txt");
+    assert(kwords.fname.and_list().empty() == true);
+    assert(kwords.fname.or_list().empty() == true);
+    assert(kwords.fname.not_list().empty() == true);
+    assert(kwords.fsize.and_list().empty() == true);
+    assert(kwords.fsize.or_list().empty() == true);
+    assert(kwords.fsize.not_list().empty() == true);
+}
 
-    std::cout << "settings::for_each():" << std::endl;
-    set.for_each(
-         [](const auto &t, const auto &v){ std::cout << "0: " << t.name() << ": " << v << std::endl; }
-    );
+static void test_decl_02() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
+    } const kwords;
 
-    set.for_each(
-         false
-        ,[](decltype(kwords.fname)  &t, const auto &v){ std::cout << "1: " << t.name() << ": " << v << std::endl; }
-        ,[](decltype(kwords.fsize)  &t, const auto &v){ std::cout << "1: " << t.name() << ": " << v << std::endl; }
-        ,[](decltype(kwords.radius) &t, const auto &v){ std::cout << "1: " << t.name() << ": " << v << std::endl; }
-        ,[](decltype(kwords.radius2)&t, const auto &v){ std::cout << "1: " << t.name() << ": " << v << std::endl; }
-        ,[](decltype(kwords.poss)   &t, const auto &v){ std::cout << "1: " << t.name() << ": " << v << std::endl; }
-        ,[](decltype(kwords.ptr)    &t, const auto &v){ std::cout << "1: " << t.name() << ": " << v << std::endl; }
-    );
+    assert(kwords.fname.is_required() == false);
+    assert(kwords.fname.is_optional() == true);
+    assert(kwords.fname.is_set() == false);
+    assert(kwords.fsize.is_required() == false);
+    assert(kwords.fsize.is_optional() == true);
+    assert(kwords.fsize.is_set() == false);
 
-    std::cout << std::endl << std::endl;
+    assert(kwords.fname.and_list().empty() == true);
+    assert(kwords.fname.or_list().empty() == true);
+    assert(kwords.fname.not_list().empty() == true);
+    assert(kwords.fsize.and_list().empty() == true);
+    assert(kwords.fsize.or_list().empty() == true);
+    assert(kwords.fsize.not_list().empty() == true);
+}
 
-    std::stringstream ss;
-    std::cout << "to file:" << std::endl;
-    to_file(ss, set);
-    std::cout << ss.str() << std::endl;
-    std::cout << std::endl << std::endl;
+static void test_decl_03() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+    } const kwords;
 
-    set.reset(kwords.fname, kwords.fsize, kwords.radius, kwords.radius2, kwords.poss);
-    set.reset();
+    assert(kwords.fname.is_required() == true);
+    assert(kwords.fname.is_optional() == false);
+    assert(kwords.fname.is_set() == false);
+    assert(kwords.fsize.is_required() == true);
+    assert(kwords.fsize.is_optional() == false);
+    assert(kwords.fsize.is_set() == false);
 
-    std::cout << "to file2:" << std::endl;
-    to_file(std::cout, set);
-    std::cout << std::endl << std::endl;
+    assert(kwords.fname.and_list().empty() == true);
+    assert(kwords.fname.or_list().empty() == true);
+    assert(kwords.fname.not_list().empty() == true);
+    assert(kwords.fsize.and_list().empty() == false);
+    assert(kwords.fsize.or_list().empty() == true);
+    assert(kwords.fsize.not_list().empty() == true);
+}
 
-    {
-        std::cout << "from file:" << std::endl;
-        bool ok = false;
-        std::string errmsg;
-        from_file(&ok, &errmsg, ss, set);
-        assert(ok);
-        assert(errmsg.empty());
-        std::cout << std::endl << std::endl;
-    }
+static void test_decl_04() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", or_(fname));
+    } const kwords;
 
-    std::cout << "to file3:" << std::endl;
-    to_file(std::cout, set);
-    std::cout << std::endl << std::endl;
+    assert(kwords.fname.is_required() == true);
+    assert(kwords.fname.is_optional() == false);
+    assert(kwords.fname.is_set() == false);
+    assert(kwords.fsize.is_required() == true);
+    assert(kwords.fsize.is_optional() == false);
+    assert(kwords.fsize.is_set() == false);
 
-    std::cout << "myfunc():" << std::endl;
-    int vv = 33;
-    myfunc(kwords.fname = "fname-1", kwords.fsize = 1024u, kwords.ptr = &vv);
-    myfunc(kwords.ptr = &vv, kwords.fsize = 1024u*2, kwords.fname = "fname-2");
-    std::cout << std::endl << std::endl;
+    assert(kwords.fname.and_list().empty() == true);
+    assert(kwords.fname.or_list().empty() == true);
+    assert(kwords.fname.not_list().empty() == true);
+    assert(kwords.fsize.and_list().empty() == true);
+    assert(kwords.fsize.or_list().empty() == false);
+    assert(kwords.fsize.not_list().empty() == true);
+}
 
-    {
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wwrite-strings"
-        int margc = 5;
-        char * const margv[] = {
-             "justargs-test"
-            ,"--fname=1.txt"
-            ,"--fsize=1024"
-            ,"--poss=false"
-            ,"--ptr=43"
-        };
-    #pragma GCC diagnostic pop
-        bool ok = false;
-        std::string emsg;
-        auto args = justargs::parse_args(
-             &ok
-            ,&emsg
-            ,margc
-            ,margv
-            ,kwords.fname
-            ,kwords.fsize
-            ,kwords.poss
-        );
+static void test_decl_05() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", not_(fname));
+    } const kwords;
 
-        if ( !ok ) {
-            std::cout << "parse args test 1 error: " << emsg << std::endl;
-        } else {
-            const std::string fname = args.get(kwords.fname);
-            assert(fname == "1.txt");
+    assert(kwords.fname.is_required() == true);
+    assert(kwords.fname.is_optional() == false);
+    assert(kwords.fname.is_set() == false);
+    assert(kwords.fsize.is_required() == true);
+    assert(kwords.fsize.is_optional() == false);
+    assert(kwords.fsize.is_set() == false);
 
-            const std::size_t fsize = args.get(kwords.fsize);
-            assert(fsize == 1024);
+    assert(kwords.fname.and_list().empty() == true);
+    assert(kwords.fname.or_list().empty() == true);
+    assert(kwords.fname.not_list().empty() == true);
+    assert(kwords.fsize.and_list().empty() == true);
+    assert(kwords.fsize.or_list().empty() == true);
+    assert(kwords.fsize.not_list().empty() == false);
+}
 
-            const bool fpos = args.get(kwords.poss);
-            assert(fpos == false);
+/*************************************************************************************************/
 
-            justargs::to_file(std::cout, args);
-        }
-    }
-    {
-        justargs::args<kw::fname_t, kw::fsize_t, kw::poss_t> set{
-             kwords.fname = "file1.txt"
-            ,kwords.fsize = 1032u
-            ,kwords.poss = true
-        };
+static void test_bool_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+        CMDARGS_OPTION_ADD(report, bool, "report when finished", optional, and_(fname, fsize));
+    } const kwords;
 
-        std::stringstream ss;
-        justargs::to_file(ss, set);
-        std::cout << "file:\n" << ss.str() << std::endl;
-        set.reset();
-
-        std::cout << "after reset:\n" << set << std::endl;
-
-        bool ok = false;
-        std::string emsg;
-        auto set2 = justargs::from_file(&ok, &emsg, ss, kwords.fname, kwords.fsize, kwords.poss);
-
-        std::cout << "after from_file:" << std::endl;
-        std::cout << set2 << std::endl;
-
-        std::cout << "show_help(set2):" << std::endl;
-        justargs::show_help(std::cout, argv[0], set2);
-
-        std::cout << std::endl;
-
-        std::cout << "kwords.show_help():" << std::endl;
-        kwords.show_help(std::cout, argv[0]);
-    }
     {
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wwrite-strings"
-        int margc = 5;
         char * const margv[] = {
-             "justargs-test"
+             "cmdargs-test"
             ,"--fname=1.txt"
             ,"--fsize=1024"
-            ,"--poss=false"
-            ,"--ptr=43"
         };
+        int margc = sizeof(margv)/sizeof(margv[0]);
         #pragma GCC diagnostic pop
 
-        bool ok = false;
         std::string emsg;
-        auto args = justargs::parse_args(
-             &ok
-            ,&emsg
+        auto args = cmdargs::parse_args(
+             &emsg
             ,margc
             ,margv
             ,kwords
         );
-        static_assert(args.size() == 8, "");
+        assert(emsg.empty());
 
-        static_assert(args.has(kwords.fname), "");
-        static_assert(args.has(kwords.fsize), "");
-        static_assert(args.has(kwords.radius), "");
-        static_assert(args.has(kwords.radius2), "");
-        static_assert(args.has(kwords.poss), "");
-        static_assert(args.has(kwords.ptr), "");
-        static_assert(args.has(kwords.help), "");
-        static_assert(args.has(kwords.version), "");
+        static_assert(args.has(kwords.fname) == true);
+        static_assert(args.has(kwords.fsize) == true);
+        static_assert(args.has(kwords.report) == true);
 
-        assert(args.is_set(kwords.fname));
-        assert(args.is_set(kwords.fsize));
-        assert(!args.is_set(kwords.radius));
-        assert(!args.is_set(kwords.radius2));
-        assert(args.is_set(kwords.poss));
-        assert(args.is_set(kwords.ptr));
-        assert(!args.is_set(kwords.help));
-        assert(!args.is_set(kwords.version));
+        assert(args.is_set(kwords.fname) == true);
+        assert(args.get(kwords.fname) == "1.txt");
 
-        std::cout << "constructed from kword:" << std::endl;
-        args.dump(std::cout);
-        //justargs::show_help(std::cout, margv[0], args);
+        assert(args.is_set(kwords.fsize) == true);
+        assert(args.get(kwords.fsize) == 1024);
+
+        assert(!args.is_set(kwords.report));
     }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fname=1.txt"
+            ,"--fsize=1024"
+            ,"--report"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+
+        static_assert(args.has(kwords.fname) == true);
+        static_assert(args.has(kwords.fsize) == true);
+        static_assert(args.has(kwords.report) == true);
+
+        assert(args.is_set(kwords.fname) == true);
+        assert(args.get(kwords.fname) == "1.txt");
+
+        assert(args.is_set(kwords.fsize) == true);
+        assert(args.get(kwords.fsize) == 1024);
+
+        assert(args.is_set(kwords.report));
+        assert(args.get(kwords.report) == true);
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fname=1.txt"
+            ,"--fsize=1024"
+            ,"--report=false"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+
+        static_assert(args.has(kwords.fname) == true);
+        static_assert(args.has(kwords.fsize) == true);
+        static_assert(args.has(kwords.report) == true);
+
+        assert(args.is_set(kwords.fname) == true);
+        assert(args.get(kwords.fname) == "1.txt");
+
+        assert(args.is_set(kwords.fsize) == true);
+        assert(args.get(kwords.fsize) == 1024);
+
+        assert(args.is_set(kwords.report));
+        assert(args.get(kwords.report) == false);
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_cond_and_00() {
+    {
+        struct kwords: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
+            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+        } const kwords;
+
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fsize=1024"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        {
+            std::string emsg;
+            auto args = cmdargs::parse_args(
+                 &emsg
+                ,margc
+                ,margv
+                ,kwords
+            );
+
+            assert(!emsg.empty());
+            assert(has_substring(emsg, "together with \"--fname\""));
+        }
+    }
+    {
+        struct kwords: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+        } const kwords;
+
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fsize=1024"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        {
+            std::string emsg;
+            auto args = cmdargs::parse_args(
+                 &emsg
+                ,margc
+                ,margv
+                ,kwords
+            );
+
+            assert(!emsg.empty());
+            assert(has_substring(emsg, "together with \"--fname\""));
+        }
+    }
+    {
+        struct kwords: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+        } const kwords;
+
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fname=1.txt"
+            ,"--fsize=1024"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        {
+            std::string emsg;
+            auto args = cmdargs::parse_args(
+                 &emsg
+                ,margc
+                ,margv
+                ,kwords
+            );
+
+            if ( !emsg.empty() ) {
+                std::cout << __func__ << ": " << emsg << std::endl;
+            }
+            assert(emsg.empty());
+        }
+    }
+    {
+        struct kwords: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(fname, std::string, "source file name");
+            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size");
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", and_(fname, fsize));
+        } const kwords;
+
+        {
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wwrite-strings"
+            char * const margv[] = {
+                 "cmdargs-test"
+                ,"--fsize=1024"
+                ,"--fmode=read"
+            };
+            int margc = sizeof(margv)/sizeof(margv[0]);
+            #pragma GCC diagnostic pop
+
+            std::string emsg;
+            auto args = cmdargs::parse_args(
+                 &emsg
+                ,margc
+                ,margv
+                ,kwords
+            );
+
+            assert(!emsg.empty());
+            assert(has_substring(emsg, "together with \"--fname\""));
+        }
+
+        {
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wwrite-strings"
+            char * const margv[] = {
+                 "cmdargs-test"
+                ,"--fname=1.txt"
+                ,"--fmode=read"
+            };
+            int margc = sizeof(margv)/sizeof(margv[0]);
+            #pragma GCC diagnostic pop
+
+            std::string emsg;
+            auto args = cmdargs::parse_args(
+                 &emsg
+                ,margc
+                ,margv
+                ,kwords
+            );
+
+            assert(!emsg.empty());
+            assert(has_substring(emsg, "together with \"--fsize\""));
+        }
+
+        {
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wwrite-strings"
+            char * const margv[] = {
+                 "cmdargs-test"
+                ,"--fname=1.txt"
+                ,"--fsize=1024"
+                ,"--fmode=read"
+            };
+            int margc = sizeof(margv)/sizeof(margv[0]);
+            #pragma GCC diagnostic pop
+
+            std::string emsg;
+            auto args = cmdargs::parse_args(
+                 &emsg
+                ,margc
+                ,margv
+                ,kwords
+            );
+
+            assert(emsg.empty());
+        }
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_cond_or_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(fname, fsize));
+    } const kwords;
+
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(!emsg.empty());
+        assert(has_substring(emsg, "together with one of \"--fname\", \"--fsize\""));
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fname=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fsize=1024"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fname=1.txt"
+            ,"--fsize=1024"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(!emsg.empty());
+        assert(has_substring(emsg, "together with one of \"--fname\", \"--fsize\""));
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_cond_not_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+    } const kwords;
+
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--netsrc=192.168.1.106"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(!emsg.empty());
+        assert(has_substring(emsg, "together with one of \"--netsrc\", \"--filesrc\""));
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--netsrc=192.168.1.106"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(!emsg.empty());
+        assert(has_substring(emsg, "together with one of \"--netsrc\", \"--filesrc\""));
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--netsrc=192.168.1.106"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_to_file_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+    } const kwords;
+
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--netsrc=192.168.1.106"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+
+        std::ostringstream os;
+        cmdargs::to_file(os, args);
+
+        static const char *expected =
+R"(# "network source name"
+netsrc=192.168.1.106
+# "processing mode"
+fmode=read
+)";
+        assert(os.str() == expected);
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+
+        std::ostringstream os;
+        cmdargs::to_file(os, args);
+
+        static const char *expected =
+R"(# "file source name"
+filesrc=1.txt
+# "processing mode"
+fmode=read
+)";
+        assert(os.str() == expected);
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_from_file_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+    } const kwords;
+
+    {
+        static const char *expected =
+R"(netsrc=192.168.1.106
+filesrc=1.txt
+fmode=read
+)";
+        std::istringstream is{expected};
+        std::string emsg;
+        auto args = cmdargs::from_file(&emsg, is, kwords);
+
+        static_assert(args.has(kwords.netsrc) == true, "");
+        static_assert(args.has(kwords.filesrc) == true, "");
+        static_assert(args.has(kwords.fmode) == true, "");
+
+        assert(!emsg.empty());
+        assert(has_substring(emsg, "together with one of \"netsrc\", \"filesrc\""));
+    }
+    {
+        static const char *expected =
+R"(filesrc=1.txt
+netsrc=192.168.1.106
+fmode=read
+)";
+        std::istringstream is{expected};
+        std::string emsg;
+        auto args = cmdargs::from_file(&emsg, is, kwords);
+
+        assert(!emsg.empty());
+        assert(has_substring(emsg, "together with one of \"netsrc\", \"filesrc\""));
+    }
+    {
+        static const char *expected =
+R"(netsrc=192.168.1.106
+fmode=read
+)";
+        std::istringstream is{expected};
+        std::string emsg;
+        auto args = cmdargs::from_file(&emsg, is, kwords);
+
+        assert(emsg.empty());
+    }
+    {
+        static const char *expected =
+R"(filesrc=1.txt
+fmode=read
+)";
+        std::istringstream is{expected};
+        std::string emsg;
+        auto args = cmdargs::from_file(&emsg, is, kwords);
+
+        assert(emsg.empty());
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_show_help_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+    } const kwords;
+
+    {
+        std::ostringstream os;
+        cmdargs::show_help(os, "/test", kwords);
+
+        static const char *expected =
+R"(test:
+--netsrc=* : "network source name" (std::string, optional, not(--filesrc))
+--filesrc=*: "file source size" (std::string, optional, not(--netsrc))
+--fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
+)";
+
+        assert(os.str() == expected);
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords.filesrc, kwords.fmode);
+        static_assert(args.has(kwords.filesrc) == true);
+        static_assert(args.has(kwords.fmode) == true);
+
+        std::ostringstream os;
+        cmdargs::show_help(os, "/test", args);
+
+        static const char *expected =
+R"(test:
+--filesrc=*: "file source size" (std::string, optional, not(--netsrc))
+--fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
+)";
+
+        assert(os.str() == expected);
+    }
+}
+
+/*************************************************************************************************/
+
+int main(int, char **) {
+    test_decl_00();
+    test_decl_01();
+    test_decl_02();
+    test_decl_03();
+    test_decl_04();
+    test_decl_05();
+
+    test_bool_00();
+
+    test_cond_and_00();
+
+    test_cond_or_00();
+
+    test_cond_not_00();
+
+    test_to_file_00();
+    test_from_file_00();
+
+    test_show_help_00();
+
+    return EXIT_SUCCESS;
 }
 
 /*************************************************************************************************/

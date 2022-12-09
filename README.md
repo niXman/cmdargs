@@ -1,50 +1,28 @@
-# justargs
-Initially this library was created as a concept for implementing named function arguments, but in the final version the ability to save and load values to/from an ini-file was added, as well as to process command line arguments.
+# Cmdargs
+Command-line and config files parsing library
 
-# named function args example
+# The idea
+`Cmdargs` this is an attempt to implement the concept of `if the code is successfully compiled - it works correctly` and `zero boilerplate code`.
 
-```cpp
-// declaring key-words
-struct: justargs::kwords_group {
-    JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
-    JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
-} const kwords;
+# Capabilities
+- `optional` and `required` options.
+- option relations: `and`, `or`, `not`.
 
-// the real function
-int real_func(const std::string &fname, std::size_t fsize) {
-
-}
-
-// the proxy function
-template<typename ...Args>
-int proxy_func(Args && ...args) {
-    const auto set = justargs::make_args(std::forward<Args>(args)...);
-    return real_func(set.get(kwords.fname), set.get(kwords.fsize));
-}
-
-int main() {
-    int res = proxy_func(kwords.fname = "file.txt", kwords.fsize = 1024);
-        res = proxy_func(kwords.fsize = 1024, kwords.fname = "file.txt");
-
-    return res;
-}
-```
-
-# command line example
+# Command line example
 
 ```cpp
+// using the whole group
 int main(int argc, char **argv) {
     // declaring key-words
-    struct: justargs::kwords_group {
-        JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
-        JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name")
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
     } const kwords;
 
-    bool ok{};
-    std::string emsg{};
-    auto args = justargs::parse_args(&ok, &emsg, argc, argv, kwords.fname, kwords.fsize);
-    if ( !ok ) {
-        std::cout << "args parse error: " << emsg << std::endl;
+    std::string emsg;
+    auto args = cmdargs::parse_args(&emsg, argc, argv, kwords);
+    if ( !emsg.empty() ) {
+        std::cout << "cmdline parse error: " << emsg << std::endl;
 
         return EXIT_FAILURE;
     }
@@ -55,22 +33,44 @@ int main(int argc, char **argv) {
     const auto fsize = args.get(kwords.fsize);
 }
 ```
+```cpp
+// using part of the options
+int main(int argc, char **argv) {
+    // declaring key-words
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name")
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode")
+    } const kwords;
 
-# config-file example
+    std::string emsg;
+    auto args = cmdargs::parse_args(&emsg, argc, argv, kwords.fname, kwords.fmode);
+    if ( !emsg.empty() ) {
+        std::cout << "cmdline parse error: " << emsg << std::endl;
+
+        return EXIT_FAILURE;
+    }
+
+    const auto fname = args.get(kwords.fname);
+    const auto fmode = args.get(kwords.fmode);
+}
+```
+
+
+# Config-file example
 
 ```cpp
 int main(int argc, char **argv) {
     // declaring key-words
-    struct: justargs::kwords_group {
-        JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
-        JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name")
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
     } const kwords;
 
     std::ifstream is;
-    bool ok{};
-    std::string emsg{};
-    auto set = justargs::from_file(&ok, &emsg, is, kwords.fname, kwords.fsize);
-    if ( !ok ) {
+    std::string emsg;
+    auto set = cmdargs::from_file(&emsg, is, kwords.fname, kwords.fsize);
+    if ( !emsg.empty() ) {
         std::cout << "file parse error: " << emsg << std::endl;
 
         return EXIT_FAILURE;
@@ -83,37 +83,37 @@ int main(int argc, char **argv) {
 }
 ```
 
-# show help message
+# Show help message
 
-for all the keywords:
 ```cpp
+// for all the keywords
 int main(int argc, char **argv) {
     // declaring key-words
-    struct: justargs::kwords_group {
-        JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
-        JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name")
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
     } const kwords;
 
-    kwords.show_help(std::cout, argv[0]);
+    cmdargs::show_help(std::cout, argv[0], kwords);
 }
 ```
-for selected keywords only:
 ```cpp
+// for selected keywords only
 int main(int argc, char **argv) {
     // declaring key-words
-    struct: justargs::kwords_group {
-        JUSTARGS_ADD_OPTION(fname, std::string, "source file name")
-        JUSTARGS_ADD_OPTION(fsize, std::size_t, "source file size", optional)
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(fname, std::string, "source file name")
+        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
     } const kwords;
 
-    bool ok{};
-    std::string emsg{};
-    auto args = justargs::parse_args(&ok, &emsg, argc, argv, kwords.fname, kwords.fsize);
+    std::string emsg;
+    auto args = cmdargs::parse_args(&emsg, argc, argv, kwords.fname, kwords.fsize);
 
-    justargs::show_help(std::cout, argv[0], args);
+    cmdargs::show_help(std::cout, argv[0], args);
 }
 ```
 
 
 # TODO
-tests! tests! tests!
+- validators
+- default values
