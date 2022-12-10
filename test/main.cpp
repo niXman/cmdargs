@@ -643,6 +643,18 @@ static void test_cond_not_00() {
 
 struct: cmdargs::kwords_group {
     CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+    CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+    CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+} const test_default_00_kwords;
+
+static void test_default_00() {
+
+}
+
+/*************************************************************************************************/
+
+struct: cmdargs::kwords_group {
+    CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
     CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
     CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
 } const test_to_file_00_kwords;
@@ -851,6 +863,8 @@ int main(int, char **) {
     test_cond_or_00();
 
     test_cond_not_00();
+
+    test_default_00();
 
     test_to_file_00();
     test_from_file_00();

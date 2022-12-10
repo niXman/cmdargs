@@ -27,7 +27,7 @@
 #ifndef __CMDARGS__CMDARGS_HPP
 #define __CMDARGS__CMDARGS_HPP
 
-#include <iostream> // TODO: comment out
+//#include <iostream> // TODO: comment out
 
 #include <ostream>
 #include <istream>
@@ -525,7 +525,10 @@ auto to_tuple(const T &kw) {
             res.m_not_list = m_not_list; \
             return res; \
         } \
-        \
+        /* the following set of the constructors can't be replaced \
+         * with a single templated variadic-list constructor because \
+         * then this struct become not-braces-constructible \
+         */ \
         /* default */ \
         OPTION_TYPE_NAME() \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
@@ -683,30 +686,30 @@ struct kwords_group {
 
     template<typename ...Types>
     static auto and_(const Types &...args) {
-        using container_type = std::tuple<typename std::decay<Types>::type...>;
+        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
         static_assert(
-             std::tuple_size<container_type>::value
-                == std::tuple_size<details::without_duplicates<container_type>>::value
+             std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
         return cond_list{cond_list::AND, {args.m_opt_name()...}};
     }
     template<typename ...Types>
     static auto or_(const Types &...args) {
-        using container_type = std::tuple<typename std::decay<Types>::type...>;
+        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
         static_assert(
-             std::tuple_size<container_type>::value
-                == std::tuple_size<details::without_duplicates<container_type>>::value
+             std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
         return cond_list{cond_list::OR, {args.m_opt_name()...}};
     }
     template<typename ...Types>
     static auto not_(const Types &...args) {
-        using container_type = std::tuple<typename std::decay<Types>::type...>;
+        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
         static_assert(
-             std::tuple_size<container_type>::value
-                == std::tuple_size<details::without_duplicates<container_type>>::value
+             std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
         return cond_list{cond_list::NOT, {args.m_opt_name()...}};
