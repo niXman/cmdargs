@@ -32,7 +32,6 @@
 #include <ostream>
 #include <istream>
 #include <sstream>
-#include <map>
 #include <vector>
 #include <tuple>
 #include <array>
@@ -500,7 +499,7 @@ auto to_tuple(const T &kw) {
         \
         using value_type    = OPTION_TYPE; \
         using optional_type = ::cmdargs::optional_type<value_type>; \
-        using cond_list     = ::cmdargs::cond_list; \
+        using expression_list     = ::cmdargs::expression_list; \
         \
         /* data members */ \
         bool m_required; \
@@ -527,8 +526,7 @@ auto to_tuple(const T &kw) {
         } \
         /* the following set of the constructors can't be replaced \
          * with a single templated variadic-list constructor because \
-         * then this struct become not-braces-constructible \
-         */ \
+         * then this struct become not-braces-constructible, which is required. */ \
         /* default */ \
         OPTION_TYPE_NAME() \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
@@ -543,9 +541,9 @@ auto to_tuple(const T &kw) {
         {} \
         /* default with cond list */ \
         OPTION_TYPE_NAME( \
-             cond_list cond0 \
-            ,cond_list cond1 = {} \
-            ,cond_list cond2 = {} \
+             expression_list cond0 \
+            ,expression_list cond1 = {} \
+            ,expression_list cond2 = {} \
         ) \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{true} \
@@ -554,9 +552,9 @@ auto to_tuple(const T &kw) {
         /* default with cond list and category */ \
         OPTION_TYPE_NAME( \
              const ::cmdargs::optional_t & \
-            ,cond_list cond0 \
-            ,cond_list cond1 = {} \
-            ,cond_list cond2 = {} \
+            ,expression_list cond0 \
+            ,expression_list cond1 = {} \
+            ,expression_list cond2 = {} \
         ) \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{false} \
@@ -577,7 +575,6 @@ auto to_tuple(const T &kw) {
             ::cmdargs::details::from_string_impl(&v, ptr, len); \
             m_val = std::move(v); \
         } \
-        \
         std::ostream& dump(std::ostream &os) const override { \
             os \
                 << "this=" << this << ": name=" << name() << "(" << type() << "): req=" << is_required() \
@@ -587,16 +584,15 @@ auto to_tuple(const T &kw) {
             ; \
             return os; \
         } \
-        \
-        void get_conditions(cond_list cond0, cond_list cond1, cond_list cond2) { \
+        void get_conditions(expression_list cond0, expression_list cond1, expression_list cond2) { \
             for ( auto &&it: {std::move(cond0), std::move(cond1), std::move(cond2)} ) { \
                 if ( it.list().empty() ) continue; \
                 switch ( it.type() ) { \
-                    case cond_list::AND: { m_and_list = std::move(it.list()); break; } \
-                    case cond_list::OR: { m_or_list = std::move(it.list()); break; } \
-                    case cond_list::NOT: { m_not_list = std::move(it.list()); break; } \
-                    case cond_list::UNDEFINED: { \
-                        assert("unexpected UNDEFINED cond_list!" == nullptr); break; } \
+                    case expression_list::AND: { m_and_list = std::move(it.list()); break; } \
+                    case expression_list::OR: { m_or_list = std::move(it.list()); break; } \
+                    case expression_list::NOT: { m_not_list = std::move(it.list()); break; } \
+                    case expression_list::UNDEFINED: { \
+                        assert("unexpected UNDEFINED expression_list!" == nullptr); break; } \
                 } \
             } \
         } \
@@ -653,14 +649,14 @@ struct optional_t {};
 
 /*************************************************************************************************/
 
-struct cond_list {
+struct expression_list {
     enum e_type { UNDEFINED, AND, OR, NOT };
 
-    cond_list(const cond_list &) = default;
-    cond_list(cond_list &&) = default;
+    expression_list(const expression_list &) = default;
+    expression_list(expression_list &&) = default;
 
-    cond_list() = default;
-    cond_list(e_type t, const std::initializer_list<const char *> l)
+    expression_list() = default;
+    expression_list(e_type t, const std::initializer_list<const char *> l)
         :m_type{t}
         ,m_list{l}
     {}
@@ -677,11 +673,6 @@ private:
 /*************************************************************************************************/
 
 struct kwords_group {
-    using options_map_type = std::map<
-         std::string
-        ,const option_base *
-    >;
-
     static constexpr optional_t optional{};
 
     template<typename ...Types>
@@ -692,7 +683,7 @@ struct kwords_group {
                 == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return cond_list{cond_list::AND, {args.m_opt_name()...}};
+        return expression_list{expression_list::AND, {args.m_opt_name()...}};
     }
     template<typename ...Types>
     static auto or_(const Types &...args) {
@@ -702,7 +693,7 @@ struct kwords_group {
                 == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return cond_list{cond_list::OR, {args.m_opt_name()...}};
+        return expression_list{expression_list::OR, {args.m_opt_name()...}};
     }
     template<typename ...Types>
     static auto not_(const Types &...args) {
@@ -712,7 +703,7 @@ struct kwords_group {
                 == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return cond_list{cond_list::NOT, {args.m_opt_name()...}};
+        return expression_list{expression_list::NOT, {args.m_opt_name()...}};
     }
 };
 
@@ -754,7 +745,7 @@ struct args {
 
     template<typename T>
     bool is_set(const T &) const {
-        static_assert (has_type<T>::value, "");
+        static_assert(has_type<T>::value, "");
 
         return std::get<T>(m_kwords).is_set();
     }
@@ -779,32 +770,25 @@ struct args {
         return res;
     }
 
-    template<typename T, typename VT>
-    void set(const T &, VT &&v) {
-        auto &item = std::get<T>(m_kwords);
-        item.m_val = std::forward<VT>(v);
-        item.call_cb();
-    }
-
     template<typename T>
     const typename T::value_type& get(const T &) const {
-        static_assert (has_type<T>::value, "");
+        static_assert(has_type<T>::value, "");
 
         return std::get<T>(m_kwords).m_val.value();
     }
     template<typename T>
     typename T::value_type& get(const T &) {
-        static_assert (has_type<T>::value, "");
+        static_assert(has_type<T>::value, "");
 
         return std::get<T>(m_kwords).m_val.value();
     }
-    template<typename T, typename D>
-    typename T::value_type get(const T &v, D &&def) const {
-        if ( has(v) ) {
+    template<typename T, typename U>
+    typename T::value_type get(const T &k, U &&v) const {
+        if ( is_set(k) ) {
             return std::get<T>(m_kwords).m_val.value();
         }
 
-        return def;
+        return std::forward<U>(v);
     }
 
     void reset() {
@@ -839,7 +823,8 @@ struct args {
     // for debug only
     void show_this(std::ostream &os) const {
         for_each(
-            [&os](const auto &t, const auto &){ os << "  " << t.name() << ": this="; t.show_this(os) << std::endl; }
+            [&os](const auto &t, const auto &)
+            { os << "  " << t.name() << ": this="; t.show_this(os) << std::endl; }
         );
     }
 

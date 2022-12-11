@@ -648,7 +648,64 @@ struct: cmdargs::kwords_group {
 } const test_default_00_kwords;
 
 static void test_default_00() {
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
 
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,test_default_00_kwords
+        );
+
+        static_assert(args.has(test_default_00_kwords.netsrc) == true);
+        static_assert(args.has(test_default_00_kwords.filesrc) == true);
+        static_assert(args.has(test_default_00_kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args.get(test_default_00_kwords.fmode) == "read");
+        assert(args.get(test_default_00_kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        assert(args.get(test_default_00_kwords.filesrc) == "1.txt");
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--netsrc=192.168.1.101"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,test_default_00_kwords
+        );
+
+        static_assert(args.has(test_default_00_kwords.netsrc) == true);
+        static_assert(args.has(test_default_00_kwords.filesrc) == true);
+        static_assert(args.has(test_default_00_kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args.get(test_default_00_kwords.fmode) == "read");
+        assert(args.get(test_default_00_kwords.netsrc) == "192.168.1.101");
+        assert(args.get(test_default_00_kwords.filesrc, "2.txt") == "2.txt");
+    }
 }
 
 /*************************************************************************************************/
