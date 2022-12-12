@@ -114,7 +114,3 @@ int main(int argc, char **argv) {
     cmdargs::show_help(std::cout, argv[0], args);
 }
 ```
-
-
-# TODO
-- converters

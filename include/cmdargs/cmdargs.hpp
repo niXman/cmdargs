@@ -52,20 +52,6 @@
 #define __CMDARGS_STRINGIZE_I(x) #x
 #define __CMDARGS_STRINGIZE(x) __CMDARGS_STRINGIZE_I(x)
 
-#define __CMDARGS_ARG16(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, ...) _15
-#define __CMDARGS_HAS_COMMA(...) __CMDARGS_ARG16(__VA_ARGS__, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
-#define __CMDARGS_TRIGGER_PARENTHESIS_(...) ,
-#define __CMDARGS_PASTE5(_0, _1, _2, _3, _4) _0 ## _1 ## _2 ## _3 ## _4
-#define __CMDARGS_IS_EMPTY_CASE_0001 ,
-#define __CMDARGS_IS_EMPTY(_0, _1, _2, _3) __CMDARGS_HAS_COMMA(__CMDARGS_PASTE5(__CMDARGS_IS_EMPTY_CASE_, _0, _1, _2, _3))
-#define __CMDARGS_TUPLE_IS_EMPTY(...) \
-    __CMDARGS_IS_EMPTY( \
-        __CMDARGS_HAS_COMMA(__VA_ARGS__), \
-        __CMDARGS_HAS_COMMA(__CMDARGS_TRIGGER_PARENTHESIS_ __VA_ARGS__), \
-        __CMDARGS_HAS_COMMA(__VA_ARGS__ (/*empty*/)), \
-        __CMDARGS_HAS_COMMA(__CMDARGS_TRIGGER_PARENTHESIS_ __VA_ARGS__ (/*empty*/)) \
-    )
-
 /*************************************************************************************************/
 
 #define __CMDARGS_REPEAT_0(macro, data)
@@ -491,6 +477,14 @@ auto to_tuple(const T &kw) {
 
 /*************************************************************************************************/
 
+#ifdef CMDARGS_OPTION_ASSIGN_ENABLED
+#   define __CMDARGS_EXPAND_EXPR(...) __VA_ARGS__
+#else
+#   define __CMDARGS_EXPAND_EXPR(...)
+#endif
+
+/*************************************************************************************************/
+
 #define CMDARGS_OPTION_DECLARE(OPTION_NAME, OPTION_TYPE_NAME, OPTION_TYPE, DESCRIPTION) \
     struct OPTION_TYPE_NAME: ::cmdargs::option_base { \
         static constexpr const char* m_opt_name() { return __CMDARGS_STRINGIZE(OPTION_NAME); } \
@@ -501,11 +495,13 @@ auto to_tuple(const T &kw) {
         using optional_type   = ::cmdargs::optional_type<value_type>; \
         using expression_list = ::cmdargs::expression_list; \
         using validator_type  = std::function<bool(const char *str, std::size_t len)>; \
+        using converter_type  = std::function<bool(void *dst, const char *str, std::size_t len)>; \
         \
         /* data members */ \
         bool m_required; \
         optional_type m_val; \
         validator_type m_validator; \
+        converter_type m_converter; \
         std::vector<const char *> m_and_list{}; \
         std::vector<const char *> m_or_list{}; \
         std::vector<const char *> m_not_list{}; \
@@ -515,26 +511,34 @@ auto to_tuple(const T &kw) {
         \
         OPTION_TYPE_NAME(const OPTION_TYPE_NAME &r) = default; \
         OPTION_TYPE_NAME(OPTION_TYPE_NAME &&r) = default; \
-        \
-        template<typename T> \
-        OPTION_TYPE_NAME operator= (T &&v) const { \
-            OPTION_TYPE_NAME res; \
-            res.m_required = m_required; \
-            res.m_val      = std::forward<T>(v); \
-            res.m_and_list = m_and_list; \
-            res.m_or_list  = m_or_list; \
-            res.m_not_list = m_not_list; \
-            return res; \
-        } \
+        /* when the following 'operator=(T &&)' is enabled then a kwords-group \
+         * can't be declared inside function. \
+         */ \
+        __CMDARGS_EXPAND_EXPR( \
+            template<typename T> \
+            OPTION_TYPE_NAME operator= (T &&v) const { \
+                OPTION_TYPE_NAME res; \
+                res.m_required = m_required; \
+                res.m_val      = std::forward<T>(v); \
+                res.m_validator= m_validator; \
+                res.m_converter= m_converter; \
+                res.m_and_list = m_and_list; \
+                res.m_or_list  = m_or_list; \
+                res.m_not_list = m_not_list; \
+                return res; \
+            } \
+        ) \
         /* the following set of the constructors can't be replaced \
          * with a single templated variadic-list constructor because \
-         * then this struct become not-braces-constructible, which is required. */ \
+         * then this struct become not-braces-constructible, which is required \
+         * for the 'to_tuple()' function. */ \
         /* default */ \
         OPTION_TYPE_NAME() \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{true} \
             ,m_val{} \
             ,m_validator{} \
+            ,m_converter{} \
         {} \
         /* default - optional */ \
         OPTION_TYPE_NAME(const ::cmdargs::optional_t &) \
@@ -542,30 +546,39 @@ auto to_tuple(const T &kw) {
             ,m_required{false} \
             ,m_val{} \
             ,m_validator{} \
+            ,m_converter{} \
         {} \
         /* default with cond list */ \
         OPTION_TYPE_NAME( \
-             expression_list cond0 \
-            ,expression_list cond1 = {} \
-            ,expression_list cond2 = {} \
+             expression_list expr0 \
+            ,expression_list expr1 = {} \
+            ,expression_list expr2 = {} \
+            ,expression_list expr3 = {} \
+            ,expression_list expr4 = {} \
         ) \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{true} \
             ,m_val{} \
             ,m_validator{} \
-        { get_conditions(std::move(cond0), std::move(cond1), std::move(cond2)); } \
+            ,m_converter{} \
+        { get_conditions(std::move(expr0), std::move(expr1), std::move(expr2) \
+            , std::move(expr3), std::move(expr4)); } \
         /* default with cond list and category */ \
         OPTION_TYPE_NAME( \
              const ::cmdargs::optional_t & \
-            ,expression_list cond0 \
-            ,expression_list cond1 = {} \
-            ,expression_list cond2 = {} \
+            ,expression_list expr0 \
+            ,expression_list expr1 = {} \
+            ,expression_list expr2 = {} \
+            ,expression_list expr3 = {} \
+            ,expression_list expr4 = {} \
         ) \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{false} \
             ,m_val{} \
             ,m_validator{} \
-        { get_conditions(std::move(cond0), std::move(cond1), std::move(cond2)); } \
+            ,m_converter{} \
+        { get_conditions(std::move(expr0), std::move(expr1), std::move(expr2) \
+            , std::move(expr3), std::move(expr4)); } \
         \
         bool is_required() const override { return m_required; } \
         bool is_optional() const override { return !is_required(); } \
@@ -579,6 +592,16 @@ auto to_tuple(const T &kw) {
         bool has_validator() const override { return static_cast<bool>(m_validator); } \
         bool validate(const char *str, std::size_t len) const override { \
             return m_validator(str, len); \
+        } \
+        \
+        bool has_converter() const override { return static_cast<bool>(m_converter); } \
+        bool convert(const char *str, std::size_t len) override { \
+            value_type v{}; \
+            if ( m_converter(std::addressof(v), str, len) ) { \
+                m_val = std::move(v); \
+                return true; \
+            } \
+            return false; \
         } \
         \
         void from_string(const char *ptr, std::size_t len) { \
@@ -595,14 +618,19 @@ auto to_tuple(const T &kw) {
             ; \
             return os; \
         } \
-        void get_conditions(expression_list cond0, expression_list cond1, expression_list cond2) { \
-            for ( const auto &it: {std::move(cond0), std::move(cond1), std::move(cond2)} ) { \
-                if ( it.is_empty() ) continue; \
+        void get_conditions(expression_list expr0, expression_list expr1 \
+            , expression_list expr2, expression_list expr3, expression_list expr4) \
+        { \
+            for ( auto &&it: {std::move(expr0), std::move(expr1), std::move(expr2) \
+                , std::move(expr3), std::move(expr4)} ) \
+            { \
+                if ( it.is_empty() ) { continue; } \
                 switch ( it.type() ) { \
                     case ::cmdargs::expression_list::AND: { m_and_list = it.list(); break; } \
                     case ::cmdargs::expression_list::OR: { m_or_list = it.list(); break; } \
                     case ::cmdargs::expression_list::NOT: { m_not_list = it.list(); break; } \
                     case ::cmdargs::expression_list::VALIDATOR: { m_validator = it.validator(); break; } \
+                    case ::cmdargs::expression_list::CONVERTER: { m_converter = it.converter(); break; } \
                     case ::cmdargs::expression_list::UNDEFINED: { \
                         assert("unexpected UNDEFINED expression_list!" == nullptr); break; } \
                 } \
@@ -652,6 +680,9 @@ struct option_base {
     virtual bool has_validator() const = 0;
     virtual bool validate(const char *str, std::size_t len) const = 0;
 
+    virtual bool has_converter() const = 0;
+    virtual bool convert(const char *str, std::size_t len) = 0;
+
 private:
     const char *m_name;
     const char *m_type;
@@ -663,7 +694,14 @@ private:
 struct optional_t {};
 
 struct expression_list {
-    enum e_type { UNDEFINED, AND, OR, NOT, VALIDATOR };
+    enum e_type {
+         UNDEFINED // 0
+        ,AND       // 1
+        ,OR        // 2
+        ,NOT       // 3
+        ,VALIDATOR // 4
+        ,CONVERTER // 5
+    };
 
     expression_list(const expression_list &) = default;
     expression_list(expression_list &&) = default;
@@ -673,24 +711,55 @@ struct expression_list {
         :m_type{t}
         ,m_list{list}
         ,m_validator{}
+        ,m_converter{}
     {}
-    template<typename F>
-    expression_list(e_type t, F &&f)
+
+    using validator_func = std::function<bool(const char *ptr, std::size_t len)>;
+    expression_list(e_type t, validator_func func)
         :m_type{t}
         ,m_list{}
-        ,m_validator{std::forward<F>(f)}
-    {}
+        ,m_validator{std::move(func)}
+        ,m_converter{}
+    { assert(t == VALIDATOR); }
+
+    using converter_func = std::function<bool(void *dst, const char *ptr, std::size_t len)>;
+    expression_list(e_type t, converter_func func)
+        :m_type{t}
+        ,m_list{}
+        ,m_validator{}
+        ,m_converter{std::move(func)}
+    { assert(t == CONVERTER); }
 
     e_type type() const { return m_type; }
+    const char* type_name() const {
+        static const char *arr[] = {
+            "UNDEFINED" // 0
+           ,"AND"       // 1
+           ,"OR"        // 2
+           ,"NOT"       // 3
+           ,"VALIDATOR" // 4
+           ,"CONVERTER" // 5
+        };
+
+        return arr[static_cast<std::size_t>(m_type)];
+    }
     auto list() const { return m_list; }
     auto validator() const { return m_validator; }
+    auto converter() const { return m_converter; }
 
-    bool is_empty() const { return list().empty() && !static_cast<bool>(m_validator); }
+    bool is_empty() const {
+        bool empty = list().empty()
+            && false == static_cast<bool>(m_validator)
+            && false == static_cast<bool>(m_converter)
+        ;
+        return empty;
+    }
 
 private:
     e_type m_type;
     std::vector<const char *> m_list;
-    std::function<bool(const char *ptr, std::size_t len)> m_validator;
+    validator_func m_validator;
+    converter_func m_converter;
 };
 
 /*************************************************************************************************/
@@ -730,7 +799,11 @@ struct kwords_group {
     }
     template<typename F>
     static auto validator_(F &&f) {
-        return expression_list{expression_list::e_type::VALIDATOR, std::forward<F>(f)};
+        return expression_list(expression_list::e_type::VALIDATOR, std::forward<F>(f));
+    }
+    template<typename F>
+    static auto converter_(F &&f) {
+        return expression_list(expression_list::e_type::CONVERTER, std::forward<F>(f));
     }
 };
 
@@ -1098,13 +1171,25 @@ void parse_kv_list(
             set.for_each(
                 [pref, key, val, len, &msg](auto &t, const auto &) {
                     if ( std::strcmp(t.name(), key) == 0 ) {
-                        if ( t.has_validator() ) {
-                            if ( t.validate(val, len) ) {
-                                t.from_string(val, len);
-                            } else {
+                        bool has_validator = t.has_validator();
+                        bool has_converter = t.has_converter();
+                        if ( has_validator ) {
+                            if ( !t.validate(val, len) ) {
                                 msg = "an invalid value \"";
                                 msg += val;
                                 msg += "\" was received for \"";
+                                msg += (pref ? pref : "");
+                                msg += key;
+                                msg += "\" option";
+
+                                return false;
+                            }
+                        }
+                        if ( has_converter ) {
+                            if ( !t.convert(val, len) ) {
+                                msg = "can't convert value \"";
+                                msg += val;
+                                msg += "\" for \"";
                                 msg += (pref ? pref : "");
                                 msg += key;
                                 msg += "\" option";
