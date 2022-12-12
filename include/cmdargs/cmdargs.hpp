@@ -497,13 +497,15 @@ auto to_tuple(const T &kw) {
         static constexpr const char* m_opt_type() { return __CMDARGS_STRINGIZE(OPTION_TYPE); } \
         static constexpr const char *m_opt_descr() { return __CMDARGS_STRINGIZE(DESCRIPTION); } \
         \
-        using value_type    = OPTION_TYPE; \
-        using optional_type = ::cmdargs::optional_type<value_type>; \
-        using expression_list     = ::cmdargs::expression_list; \
+        using value_type      = OPTION_TYPE; \
+        using optional_type   = ::cmdargs::optional_type<value_type>; \
+        using expression_list = ::cmdargs::expression_list; \
+        using validator_type  = std::function<bool(const char *str, std::size_t len)>; \
         \
         /* data members */ \
         bool m_required; \
         optional_type m_val; \
+        validator_type m_validator; \
         std::vector<const char *> m_and_list{}; \
         std::vector<const char *> m_or_list{}; \
         std::vector<const char *> m_not_list{}; \
@@ -532,12 +534,14 @@ auto to_tuple(const T &kw) {
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{true} \
             ,m_val{} \
+            ,m_validator{} \
         {} \
         /* default - optional */ \
         OPTION_TYPE_NAME(const ::cmdargs::optional_t &) \
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{false} \
             ,m_val{} \
+            ,m_validator{} \
         {} \
         /* default with cond list */ \
         OPTION_TYPE_NAME( \
@@ -548,6 +552,7 @@ auto to_tuple(const T &kw) {
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{true} \
             ,m_val{} \
+            ,m_validator{} \
         { get_conditions(std::move(cond0), std::move(cond1), std::move(cond2)); } \
         /* default with cond list and category */ \
         OPTION_TYPE_NAME( \
@@ -559,6 +564,7 @@ auto to_tuple(const T &kw) {
             :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
             ,m_required{false} \
             ,m_val{} \
+            ,m_validator{} \
         { get_conditions(std::move(cond0), std::move(cond1), std::move(cond2)); } \
         \
         bool is_required() const override { return m_required; } \
@@ -569,6 +575,11 @@ auto to_tuple(const T &kw) {
         const std::vector<const char *>& and_list() const override { return m_and_list; } \
         const std::vector<const char *>& or_list() const override { return m_or_list; } \
         const std::vector<const char *>& not_list() const override { return m_not_list; } \
+        \
+        bool has_validator() const override { return static_cast<bool>(m_validator); } \
+        bool validate(const char *str, std::size_t len) const override { \
+            return m_validator(str, len); \
+        } \
         \
         void from_string(const char *ptr, std::size_t len) { \
             value_type v{}; \
@@ -585,13 +596,14 @@ auto to_tuple(const T &kw) {
             return os; \
         } \
         void get_conditions(expression_list cond0, expression_list cond1, expression_list cond2) { \
-            for ( auto &&it: {std::move(cond0), std::move(cond1), std::move(cond2)} ) { \
-                if ( it.list().empty() ) continue; \
+            for ( const auto &it: {std::move(cond0), std::move(cond1), std::move(cond2)} ) { \
+                if ( it.is_empty() ) continue; \
                 switch ( it.type() ) { \
-                    case expression_list::AND: { m_and_list = std::move(it.list()); break; } \
-                    case expression_list::OR: { m_or_list = std::move(it.list()); break; } \
-                    case expression_list::NOT: { m_not_list = std::move(it.list()); break; } \
-                    case expression_list::UNDEFINED: { \
+                    case ::cmdargs::expression_list::AND: { m_and_list = it.list(); break; } \
+                    case ::cmdargs::expression_list::OR: { m_or_list = it.list(); break; } \
+                    case ::cmdargs::expression_list::NOT: { m_not_list = it.list(); break; } \
+                    case ::cmdargs::expression_list::VALIDATOR: { m_validator = it.validator(); break; } \
+                    case ::cmdargs::expression_list::UNDEFINED: { \
                         assert("unexpected UNDEFINED expression_list!" == nullptr); break; } \
                 } \
             } \
@@ -637,6 +649,9 @@ struct option_base {
     virtual const std::vector<const char *>&
     not_list() const = 0;
 
+    virtual bool has_validator() const = 0;
+    virtual bool validate(const char *str, std::size_t len) const = 0;
+
 private:
     const char *m_name;
     const char *m_type;
@@ -647,27 +662,35 @@ private:
 
 struct optional_t {};
 
-/*************************************************************************************************/
-
 struct expression_list {
-    enum e_type { UNDEFINED, AND, OR, NOT };
+    enum e_type { UNDEFINED, AND, OR, NOT, VALIDATOR };
 
     expression_list(const expression_list &) = default;
     expression_list(expression_list &&) = default;
 
     expression_list() = default;
-    expression_list(e_type t, const std::initializer_list<const char *> l)
+    expression_list(e_type t, const std::initializer_list<const char *> list)
         :m_type{t}
-        ,m_list{l}
+        ,m_list{list}
+        ,m_validator{}
+    {}
+    template<typename F>
+    expression_list(e_type t, F &&f)
+        :m_type{t}
+        ,m_list{}
+        ,m_validator{std::forward<F>(f)}
     {}
 
     e_type type() const { return m_type; }
-    auto& list() { return m_list; }
-    const auto& list() const { return m_list; }
+    auto list() const { return m_list; }
+    auto validator() const { return m_validator; }
+
+    bool is_empty() const { return list().empty() && !static_cast<bool>(m_validator); }
 
 private:
     e_type m_type;
     std::vector<const char *> m_list;
+    std::function<bool(const char *ptr, std::size_t len)> m_validator;
 };
 
 /*************************************************************************************************/
@@ -683,7 +706,7 @@ struct kwords_group {
                 == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return expression_list{expression_list::AND, {args.m_opt_name()...}};
+        return expression_list{expression_list::e_type::AND, {args.m_opt_name()...}};
     }
     template<typename ...Types>
     static auto or_(const Types &...args) {
@@ -693,7 +716,7 @@ struct kwords_group {
                 == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return expression_list{expression_list::OR, {args.m_opt_name()...}};
+        return expression_list{expression_list::e_type::OR, {args.m_opt_name()...}};
     }
     template<typename ...Types>
     static auto not_(const Types &...args) {
@@ -703,7 +726,11 @@ struct kwords_group {
                 == std::tuple_size<details::without_duplicates<tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return expression_list{expression_list::NOT, {args.m_opt_name()...}};
+        return expression_list{expression_list::e_type::NOT, {args.m_opt_name()...}};
+    }
+    template<typename F>
+    static auto validator_(F &&f) {
+        return expression_list{expression_list::e_type::VALIDATOR, std::forward<F>(f)};
     }
 };
 
@@ -1050,7 +1077,7 @@ void parse_kv_list(
 
         const char *key = line.c_str();
         if ( const char *unexpected = set.check_for_unexpected(key) ) {
-            std::string msg = "there is extra \"";
+            std::string msg = "there is an extra \"";
             msg += (pref ? pref : "");
             msg += unexpected;
             msg += "\" option was specified";
@@ -1065,18 +1092,44 @@ void parse_kv_list(
         }
 
         if ( pos != std::string::npos ) {
+            std::string msg;
             const char *val = line.c_str() + pos + 1;
             std::size_t len = (line.length() - pos) - 1;
             set.for_each(
-                [key, val, len](auto &t, const auto &) {
+                [pref, key, val, len, &msg](auto &t, const auto &) {
                     if ( std::strcmp(t.name(), key) == 0 ) {
-                        t.from_string(val, len);
+                        if ( t.has_validator() ) {
+                            if ( t.validate(val, len) ) {
+                                t.from_string(val, len);
+                            } else {
+                                msg = "an invalid value \"";
+                                msg += val;
+                                msg += "\" was received for \"";
+                                msg += (pref ? pref : "");
+                                msg += key;
+                                msg += "\" option";
+
+                                return false;
+                            }
+                        } else {
+                            t.from_string(val, len);
+                        }
                         return false;
                     }
                     return true;
                 }
                 ,false
             );
+
+            if ( !msg.empty() ) {
+                if ( emsg ) {
+                    *emsg = std::move(msg);
+                } else {
+                    throw std::invalid_argument(msg);
+                }
+
+                return;
+            }
         } else {
             if ( !set.is_bool_type(key) ) {
                 std::string msg = "a value must be provided for \"";

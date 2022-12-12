@@ -711,6 +711,91 @@ static void test_default_00() {
 /*************************************************************************************************/
 
 struct: cmdargs::kwords_group {
+    CMDARGS_OPTION_ADD(fmode, std::string, "processing mode"
+        ,validator_([](const char *str, std::size_t len) {
+            std::string s{str, len};
+            return s == "read" || s == "write";
+        })
+    );
+} const test_validator_00_kwords;
+
+static void test_validator_00() {
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,test_validator_00_kwords
+        );
+
+        static_assert(args.has(test_validator_00_kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args.get(test_validator_00_kwords.fmode) == "read");
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fmode=write"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,test_validator_00_kwords
+        );
+
+        static_assert(args.has(test_validator_00_kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args.get(test_validator_00_kwords.fmode) == "write");
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--fmode=wrong"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,test_validator_00_kwords
+        );
+
+        static_assert(args.has(test_validator_00_kwords.fmode) == true);
+
+        assert(!emsg.empty());
+        assert(emsg == "an invalid value \"wrong\" was received for \"--fmode\" option");
+    }
+}
+
+/*************************************************************************************************/
+
+struct: cmdargs::kwords_group {
     CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
     CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
     CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
@@ -922,6 +1007,8 @@ int main(int, char **) {
     test_cond_not_00();
 
     test_default_00();
+
+    test_validator_00();
 
     test_to_file_00();
     test_from_file_00();
