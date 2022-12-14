@@ -1,5 +1,7 @@
 # Cmdargs
-Command-line and config files parsing library
+Command-line and config files parsing single header-file library
+
+Only long option names is supported
 
 # The idea
 `Cmdargs` this is an attempt to implement the concept of `if the code is successfully compiled - it works correctly` and `zero boilerplate code`.
@@ -114,3 +116,6 @@ int main(int argc, char **argv) {
     cmdargs::show_help(std::cout, argv[0], args);
 }
 ```
+
+# TODO
+- to implement check for child options

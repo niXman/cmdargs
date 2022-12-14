@@ -57,6 +57,8 @@ static void test_decl_00() {
     assert(kwords.fsize.not_list().empty() == true);
 }
 
+/*************************************************************************************************/
+
 static void test_decl_01() {
     struct: cmdargs::kwords_group {
         CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
@@ -282,6 +284,7 @@ static void test_cond_and_00() {
         struct: cmdargs::kwords_group {
             CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
             CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+            CMDARGS_OPTION_ADD_HELP();
         } const kwords;
 
         #pragma GCC diagnostic push
@@ -570,7 +573,7 @@ static void test_cond_not_00() {
         );
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with one of \"--netsrc\", \"--filesrc\""));
+        assert(has_substring(emsg, "together with \"--filesrc\""));
     }
     {
         #pragma GCC diagnostic push
@@ -593,7 +596,7 @@ static void test_cond_not_00() {
         );
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with one of \"--netsrc\", \"--filesrc\""));
+        assert(has_substring(emsg, "together with \"--filesrc\""));
     }
     {
         #pragma GCC diagnostic push
@@ -987,7 +990,7 @@ fmode=read
         static_assert(args.has(kwords.fmode) == true, "");
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with one of \"netsrc\", \"filesrc\""));
+        assert(has_substring(emsg, "together with \"filesrc\""));
     }
     {
         static const char *expected =
@@ -1000,7 +1003,7 @@ fmode=read
         auto args = cmdargs::from_file(&emsg, is, kwords);
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with one of \"netsrc\", \"filesrc\""));
+        assert(has_substring(emsg, "together with \"filesrc\""));
     }
     {
         static const char *expected =

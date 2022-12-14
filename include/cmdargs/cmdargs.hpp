@@ -857,9 +857,9 @@ struct args {
         bool res{};
 
         for_each(
-            [name, &res](const auto &t, const auto &) {
-                if ( 0 == std::strcmp(t.name(), name) ) {
-                    res = t.is_bool();
+            [name, &res](const auto &item) {
+                if ( 0 == std::strcmp(item.name(), name) ) {
+                    res = item.is_bool();
                     return false;
                 }
                 return true;
@@ -923,8 +923,8 @@ struct args {
     // for debug only
     void show_this(std::ostream &os) const {
         for_each(
-            [&os](const auto &t, const auto &)
-            { os << "  " << t.name() << ": this="; t.show_this(os) << std::endl; }
+            [&os](const auto &item)
+            { os << "  " << item.name() << ": this="; item.show_this(os) << std::endl; }
         );
     }
 
@@ -943,9 +943,9 @@ private:
         const option_base *opt = nullptr;
         for_each(
              m_kwords
-            ,[&opt, name](const auto &t, const auto &) {
-                if ( std::strcmp(t.name(), name) == 0 ) {
-                    opt = std::addressof(t);
+            ,[&opt, name](const auto &item) {
+                if ( std::strcmp(item.name(), name) == 0 ) {
+                    opt = std::addressof(item);
                 }
                 return opt == nullptr;
             }
@@ -959,9 +959,9 @@ private:
         const char *ptr = nullptr;
         for_each(
              m_kwords
-            ,[&ptr, optname](const auto &t, const auto &) {
-                if ( std::strcmp(t.name(), optname) == 0 ) {
-                    ptr = t.name();
+            ,[&ptr, optname](const auto &item) {
+                if ( std::strcmp(item.name(), optname) == 0 ) {
+                    ptr = item.name();
                 }
                 return ptr == nullptr;
             }
@@ -974,9 +974,9 @@ private:
         const char *name = nullptr;
         for_each(
              m_kwords
-            ,[&name](const auto &t, const auto &){
-                if ( t.is_required() && !t.is_set() ) {
-                    name = t.name();
+            ,[&name](const auto &item){
+                if ( item.is_required() && !item.is_set() ) {
+                    name = item.name();
                 }
                 return name == nullptr;
              }
@@ -992,14 +992,18 @@ private:
     >;
     cond_ret_type check_for_cond_and() const {
         return check_for_conditional(
-             [](const auto &item) { return item.and_list(); }
+            [](const auto &item) {
+                return item.is_set()
+                    ? item.and_list()
+                    : std::vector<const char *>{}
+                ;
+            }
             ,[this](const auto &list) -> std::vector<const char *> {
                 std::vector<const char *> ret;
                 for ( const char *it: list ) {
                     const auto *opt = get_by_name(it);
                     if ( opt && !opt->is_set() ) {
                         ret.push_back(it);
-                        return ret;
                     }
                 }
                 return ret;
@@ -1055,9 +1059,9 @@ private:
         cond_ret_type ret;
         for_each(
              m_kwords
-            ,[&get, &cmp, &ret](const auto &t, const auto &) {
-                ret.first = t.name();
-                const auto &list = get(t);
+            ,[&get, &cmp, &ret](const auto &item) {
+                ret.first = item.name();
+                const auto &list = get(item);
                 ret.second = cmp(list);
                 return ret.second.empty();
             }
@@ -1085,14 +1089,21 @@ private:
         return check_for_required_impl(types...);
     }
 
+    // const
     template<std::size_t I = 0, typename Tuple, typename Func>
     static typename std::enable_if_t<I != std::tuple_size<Tuple>::value>
     for_each(const Tuple &tuple, const Func &func, bool inited_only) {
-        const auto &val = std::get<I>(tuple);
+        const auto &item = std::get<I>(tuple);
         if ( inited_only ) {
-            (val.m_val && func(val, val.m_val));
+            if ( item.is_set() ) {
+                if ( !func(item) ) {
+                    return;
+                }
+            }
         } else {
-            func(val, val.m_val);
+            if ( !func(item) ) {
+                return;
+            }
         }
 
         for_each<I + 1>(tuple, func, inited_only);
@@ -1101,14 +1112,21 @@ private:
     static typename std::enable_if_t<I == std::tuple_size<Tuple>::value>
     for_each(const Tuple &, const Func &, bool) {}
 
+    // non-const
     template<std::size_t I = 0, typename Tuple, typename Func>
     static typename std::enable_if_t<I != std::tuple_size<Tuple>::value>
     for_each(Tuple &tuple, const Func &func, bool inited_only) {
-        auto &val = std::get<I>(tuple);
+        auto &item = std::get<I>(tuple);
         if ( inited_only ) {
-            (val.m_val && func(val, val.m_val));
+            if ( item.is_set() ) {
+                if ( !func(item) ) {
+                    return;
+                }
+            }
         } else {
-            func(val, val.m_val);
+            if ( !func(item) ) {
+                return;
+            }
         }
 
         for_each<I + 1>(tuple, func, inited_only);
@@ -1169,12 +1187,12 @@ void parse_kv_list(
             const char *val = line.c_str() + pos + 1;
             std::size_t len = (line.length() - pos) - 1;
             set.for_each(
-                [pref, key, val, len, &msg](auto &t, const auto &) {
-                    if ( std::strcmp(t.name(), key) == 0 ) {
-                        bool has_validator = t.has_validator();
-                        bool has_converter = t.has_converter();
+                [pref, key, val, len, &msg](auto &item) {
+                    if ( std::strcmp(item.name(), key) == 0 ) {
+                        bool has_validator = item.has_validator();
+                        bool has_converter = item.has_converter();
                         if ( has_validator ) {
-                            if ( !t.validate(val, len) ) {
+                            if ( !item.validate(val, len) ) {
                                 msg = "an invalid value \"";
                                 msg += val;
                                 msg += "\" was received for \"";
@@ -1186,7 +1204,7 @@ void parse_kv_list(
                             }
                         }
                         if ( has_converter ) {
-                            if ( !t.convert(val, len) ) {
+                            if ( !item.convert(val, len) ) {
                                 msg = "can't convert value \"";
                                 msg += val;
                                 msg += "\" for \"";
@@ -1197,7 +1215,7 @@ void parse_kv_list(
                                 return false;
                             }
                         } else {
-                            t.from_string(val, len);
+                            item.from_string(val, len);
                         }
                         return false;
                     }
@@ -1232,10 +1250,10 @@ void parse_kv_list(
             }
 
             set.for_each(
-                [key](auto &t, const auto &) {
-                    if ( std::strcmp(t.name(), key) == 0 ) {
+                [key](auto &item) {
+                    if ( std::strcmp(item.name(), key) == 0 ) {
                         static const char _true[] = "true";
-                        t.from_string(_true, sizeof(_true)-1);
+                        item.from_string(_true, sizeof(_true)-1);
                         return false;
                     }
                     return true;
@@ -1260,6 +1278,8 @@ void parse_kv_list(
         } else {
             throw std::invalid_argument(msg);
         }
+
+        return;
     }
 
     auto cond_and = set.check_for_cond_and();
@@ -1277,7 +1297,10 @@ void parse_kv_list(
         } else {
             throw std::invalid_argument(msg);
         }
+
+        return;
     }
+
     auto cond_or = set.check_for_cond_or();
     if ( !cond_or.second.empty() ) {
         std::string names = details::cat_vector(pref, cond_or.second, true);
@@ -1295,7 +1318,10 @@ void parse_kv_list(
         } else {
             throw std::invalid_argument(msg);
         }
+
+        return;
     }
+
     auto cond_not = set.check_for_cond_not();
     if ( !cond_not.second.empty() ) {
         std::string names = details::cat_vector(pref, cond_not.second, true);
@@ -1473,8 +1499,8 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...>
 
     std::size_t max_len = 0;
     set.for_each(
-        [&max_len](const auto &t, const auto &) {
-            std::size_t len = std::strlen(t.name());
+        [&max_len](const auto &item) {
+            std::size_t len = std::strlen(item.name());
             max_len = (len > max_len) ? len : max_len;
 
             return true;
@@ -1483,27 +1509,27 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...>
     );
 
     set.for_each(
-        [&os, max_len](const auto &t, const auto &) {
+        [&os, max_len](const auto &item) {
             static const char ident[] = "                                        ";
-            const char *name = t.name();
+            const char *name = item.name();
             std::size_t len = std::strlen(name);
             os << "--" << name << "=*";
             os.write(ident, static_cast<std::streamsize>(max_len - len));
-            os << ": " << t.description()
+            os << ": " << item.description()
             << " ("
-                << t.type()
+                << item.type()
                 << ", "
-                << (t.is_required() ? "required" : "optional")
+                << (item.is_required() ? "required" : "optional")
             ;
-            const auto &and_list = t.and_list();
+            const auto &and_list = item.and_list();
             if ( !and_list.empty() ) {
-                os << "and(" << details::cat_vector("--", and_list) << ")";
+                os << ", and(" << details::cat_vector("--", and_list) << ")";
             }
-            const auto &or_list = t.or_list();
+            const auto &or_list = item.or_list();
             if ( !or_list.empty() ) {
                 os << ", or(" << details::cat_vector("--", or_list) << ")";
             }
-            const auto &not_list = t.not_list();
+            const auto &not_list = item.not_list();
             if ( !not_list.empty() ) {
                 os << ", not(" << details::cat_vector("--", not_list) << ")";
             }

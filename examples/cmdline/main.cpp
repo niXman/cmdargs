@@ -32,32 +32,43 @@
 
 enum e_mode { read, write };
 
+std::ostream& operator<< (std::ostream &os, e_mode mode) {
+    os << (mode == e_mode::read ? "read" : "write");
+    return os;
+}
+
 struct: cmdargs::kwords_group {
     CMDARGS_OPTION_ADD(fname, std::string, "source file name");
     CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
-    CMDARGS_OPTION_ADD(fmode, e_mode     , "source file mode", optional);
+    CMDARGS_OPTION_ADD(fmode, e_mode     , "source file mode", optional
+        ,validator_([](const char *str, std::size_t len){
+            std::string s{str, len};
+            return s == "read" || s == "write";
+        })
+        ,converter_([](void *dstptr, const char *str, std::size_t len){
+            auto &dst = *static_cast<e_mode *>(dstptr);
+            dst = (std::strncmp(str, "read", len) == 0 ? e_mode::read : e_mode::write);
+            return true;
+        })
+    );
+
+    CMDARGS_OPTION_ADD(retransmit, bool, "retransmit the file over network?", optional, and_(dst_ip, dst_port));
+    CMDARGS_OPTION_ADD(dst_ip, std::string, "the destination IP address", optional);
+    CMDARGS_OPTION_ADD(dst_port, std::uint16_t, "the destination port number", optional);
+
     CMDARGS_OPTION_ADD_HELP();
     CMDARGS_OPTION_ADD_VERSION();
 } const kwords;
 
 int main(int argc, char *const *argv) {
     std::string error_message;
-    const auto args = cmdargs::parse_args(
-         &error_message
-        ,argc
-        ,argv
-        ,kwords.fname
-        ,kwords.fsize
-        ,kwords.fmode
-        ,kwords.help
-        ,kwords.version
-    );
+    const auto args = cmdargs::parse_args(&error_message, argc, argv, kwords);
     if ( !error_message.empty() ) {
         std::cerr << "command line parse error: " << error_message << std::endl;
 
         return EXIT_FAILURE;
     }
-    args.dump(std::cout, false);
+    //args.dump(std::cout, false);
 
     if ( args.is_set(kwords.help) ) {
         cmdargs::show_help(std::cout, argv[0], args);
