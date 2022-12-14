@@ -334,7 +334,7 @@ static void test_cond_and_00() {
             );
 
             assert(!emsg.empty());
-            assert(has_substring(emsg, "together with \"--fname\""));
+            assert(emsg == "there is no required \"--fname\" option was specified");
         }
     }
     {
@@ -395,7 +395,7 @@ static void test_cond_and_00() {
             );
 
             assert(!emsg.empty());
-            assert(has_substring(emsg, "together with \"--fname\""));
+            assert(emsg == "there is no required \"--fname\" option was specified");
         }
 
         {
@@ -418,7 +418,7 @@ static void test_cond_and_00() {
             );
 
             assert(!emsg.empty());
-            assert(has_substring(emsg, "together with \"--fsize\""));
+            assert(emsg == "there is no required \"--fsize\" option was specified");
         }
 
         {
@@ -573,7 +573,7 @@ static void test_cond_not_00() {
         );
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with \"--filesrc\""));
+        assert(emsg == "the \"--fmode\" option must be used together with one of \"--netsrc\", \"--filesrc\"");
     }
     {
         #pragma GCC diagnostic push
@@ -596,7 +596,7 @@ static void test_cond_not_00() {
         );
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with \"--filesrc\""));
+        assert(emsg == "the \"--fmode\" option must be used together with one of \"--netsrc\", \"--filesrc\"");
     }
     {
         #pragma GCC diagnostic push
@@ -990,7 +990,7 @@ fmode=read
         static_assert(args.has(kwords.fmode) == true, "");
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with \"filesrc\""));
+        assert(emsg == "the \"fmode\" option must be used together with one of \"netsrc\", \"filesrc\"");
     }
     {
         static const char *expected =
@@ -1003,7 +1003,7 @@ fmode=read
         auto args = cmdargs::from_file(&emsg, is, kwords);
 
         assert(!emsg.empty());
-        assert(has_substring(emsg, "together with \"filesrc\""));
+        assert(emsg == "the \"fmode\" option must be used together with one of \"netsrc\", \"filesrc\"");
     }
     {
         static const char *expected =

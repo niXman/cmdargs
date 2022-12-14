@@ -1402,11 +1402,11 @@ auto parse_args(std::string *emsg, int argc, char* const* argv, const KWords &kw
 template<typename ...Args>
 std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_only = true) {
     set.for_each(
-        [&os](auto &t, const auto &opt) {
-            os << "# " << t.description() << std::endl;
-            os << t.name() << "=";
-            if ( opt ) {
-                details::optional_bool_printer::print(os, opt);
+        [&os](auto &item) {
+            os << "# " << item.description() << std::endl;
+            os << item.name() << "=";
+            if ( item.m_val ) {
+                details::optional_bool_printer::print(os, item.m_val);
             }
             os << std::endl;
 
