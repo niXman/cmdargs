@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2023 niXman (github dot nixman at pm dot me)
 // This file is part of CmdArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,360 +36,78 @@
 #include <tuple>
 #include <array>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <functional>
 #include <stdexcept>
+#include <optional>
+#include <utility>
 
 #include <cassert>
-#include <cstring>
 #include <cinttypes>
-
-/*************************************************************************************************/
-
-#define __CMDARGS_CAT_I(a, b) a ## b
-#define __CMDARGS_CAT(a, b) __CMDARGS_CAT_I(a, b)
-
-#define __CMDARGS_STRINGIZE_I(x) #x
-#define __CMDARGS_STRINGIZE(x) __CMDARGS_STRINGIZE_I(x)
-
-/*************************************************************************************************/
-
-#define __CMDARGS_REPEAT_0(macro, data)
-#define __CMDARGS_REPEAT_1(macro, data) \
-    macro(0, data)
-#define __CMDARGS_REPEAT_2(macro, data) \
-    __CMDARGS_REPEAT_1(macro, data) macro(1, data)
-#define __CMDARGS_REPEAT_3(macro, data) \
-    __CMDARGS_REPEAT_2(macro, data) macro(2, data)
-#define __CMDARGS_REPEAT_4(macro, data) \
-    __CMDARGS_REPEAT_3(macro, data) macro(3, data)
-#define __CMDARGS_REPEAT_5(macro, data) \
-    __CMDARGS_REPEAT_4(macro, data) macro(4, data)
-#define __CMDARGS_REPEAT_6(macro, data) \
-    __CMDARGS_REPEAT_5(macro, data) macro(5, data)
-#define __CMDARGS_REPEAT_7(macro, data) \
-    __CMDARGS_REPEAT_6(macro, data) macro(6, data)
-#define __CMDARGS_REPEAT_8(macro, data) \
-    __CMDARGS_REPEAT_7(macro, data) macro(7, data)
-#define __CMDARGS_REPEAT_9(macro, data) \
-    __CMDARGS_REPEAT_8(macro, data) macro(8, data)
-#define __CMDARGS_REPEAT_10(macro, data) \
-    __CMDARGS_REPEAT_9(macro, data) macro(9, data)
-#define __CMDARGS_REPEAT_11(macro, data) \
-    __CMDARGS_REPEAT_10(macro, data) macro(10, data)
-#define __CMDARGS_REPEAT_12(macro, data) \
-    __CMDARGS_REPEAT_11(macro, data) macro(11, data)
-#define __CMDARGS_REPEAT_13(macro, data) \
-    __CMDARGS_REPEAT_12(macro, data) macro(12, data)
-#define __CMDARGS_REPEAT_14(macro, data) \
-    __CMDARGS_REPEAT_13(macro, data) macro(13, data)
-#define __CMDARGS_REPEAT_15(macro, data) \
-    __CMDARGS_REPEAT_14(macro, data) macro(14, data)
-#define __CMDARGS_REPEAT_16(macro, data) \
-    __CMDARGS_REPEAT_15(macro, data) macro(15, data)
-#define __CMDARGS_REPEAT_17(macro, data) \
-    __CMDARGS_REPEAT_16(macro, data) macro(16, data)
-#define __CMDARGS_REPEAT_18(macro, data) \
-    __CMDARGS_REPEAT_17(macro, data) macro(17, data)
-#define __CMDARGS_REPEAT_19(macro, data) \
-    __CMDARGS_REPEAT_18(macro, data) macro(18, data)
-#define __CMDARGS_REPEAT_20(macro, data) \
-    __CMDARGS_REPEAT_19(macro, data) macro(19, data)
-
-#define __CMDARGS_REPEAT_IMPL(start_macro, macro, data) \
-    start_macro(macro, data)
-#define __CMDARGS_REPEAT(n, macro, data) \
-    __CMDARGS_REPEAT_IMPL(__CMDARGS_CAT(__CMDARGS_REPEAT_, n), macro, data)
-
-/*************************************************************************************************/
-
-#if __cplusplus < 201703L
-
-namespace cmdargs {
-
-template<typename T>
-struct optional_type {
-    optional_type()
-        :m_inited{}
-    {}
-
-    template<typename V>
-    explicit optional_type(V &&v)
-        :m_val{std::forward<V>(v)}
-        ,m_inited{true}
-    {}
-
-    template<typename V>
-    explicit optional_type(const V &v)
-        :m_val{v}
-        ,m_inited{true}
-    {}
-
-    template<typename V>
-    optional_type& operator= (V &&v) noexcept {
-        m_val = std::forward<V>(v);
-        m_inited = true;
-
-        return *this;
-    }
-
-    explicit operator bool() const noexcept { return has_value(); }
-
-    bool has_value() const noexcept { return m_inited; }
-
-    T& value() noexcept { return m_val; }
-    const T& value() const noexcept { return m_val; }
-
-    friend std::ostream& operator<< (std::ostream &os, const optional_type &v) {
-        if ( v ) {
-            os << v.value();
-        } else {
-            os << "<UNINITIALIZED>";
-        }
-
-        return os;
-    }
-
-    T m_val;
-    bool m_inited;
-};
-
-} // ns cmdargs
-
-#else
-
-#include <optional>
-
-namespace cmdargs {
-
-template<typename T>
-struct optional_type: std::optional<T> {
-    using std::optional<T>::operator=;
-    using std::optional<T>::operator bool;
-
-    friend std::ostream& operator<< (std::ostream &os, const optional_type &v) {
-        if ( v ) {
-            os << v.value();
-        } else {
-            os << "<UNINITIALIZED>";
-        }
-
-        return os;
-    }
-};
-
-} // ns cmdargs
-
-#endif // __cplusplus < 201703L
 
 /*************************************************************************************************/
 
 namespace cmdargs {
 namespace details {
 
-inline void ltrim(std::string &s, const char* t = " \t\n\r")
-{ s.erase(0, s.find_first_not_of(t)); }
-
-inline void rtrim(std::string &s, const char* t = " \t\n\r")
-{ s.erase(s.find_last_not_of(t) + 1); }
-
-inline void trim(std::string &s, const char* t = " \t\n\r")
-{ rtrim(s, t); ltrim(s, t); }
-
-constexpr std::size_t ct_strlen(const char *s) {
-    const char *p = s;
-    for ( ; *p; ++p )
-        ;
-    return p - s;
-}
-
-inline std::string cat_vector(
-     const char *pref
-    ,const std::vector<const char *> &names
-    ,bool double_quoted = false)
-{
-    std::string res;
-    for ( auto it = names.begin(); it != names.end(); ++it ) {
-        if ( double_quoted ) {
-            res += "\"";
-        }
-        res += (pref ? pref : "");
-        res += (*it);
-        if ( double_quoted ) {
-            res += "\"";
-        }
-        if ( std::next(it) != names.end() ) {
-            res += ", ";
-        }
-    }
-
-    return res;
-}
-
-template<std::size_t N>
-constexpr auto ct_init_array(const char *s, char c0, char c1) {
-    std::array<char, N> res{};
-    for ( auto i = 0u; *s; ++s, ++i ) {
-        res[i] = *s;
-    }
-    res[1] = c0;
-    res[2] = c1;
-
-    return res;
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_same<T, std::string>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    val->assign(ptr, len);
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_same<T, bool>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    *val = std::strncmp(ptr, "true", len) == 0;
-}
-
-template<typename T>
-typename std::enable_if_t<
-    std::is_integral<T>::value
-        && !std::is_same<T, bool>::value
->
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    constexpr const char *fmt = (
-        std::is_unsigned<T>::value
-        ? (std::is_same<T, std::uint8_t>::value
-            ? "%  " SCNu8 : std::is_same<T, std::uint16_t>::value
-                ? "%  " SCNu16 : std::is_same<T, std::uint32_t>::value
-                    ? "%  " SCNu32
-                    : "%  " SCNu64
-        )
-        : (std::is_same<T, std::int8_t>::value
-            ? "%  " SCNi8 : std::is_same<T, std::int16_t>::value
-                ? "%  " SCNi16 : std::is_same<T, std::int32_t>::value
-                    ? "%  " SCNi32
-                    : "%  " SCNi64
-        )
-    );
-
-    enum { S = ct_strlen(fmt)+1 };
-    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
-
-    std::sscanf(ptr, fmtbuf.data(), val);
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_enum<T>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    typename std::underlying_type<T>::type tmp{};
-    from_string_impl(&tmp, ptr, len);
-    *val = static_cast<T>(tmp);
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_floating_point<T>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) {
-    constexpr const char *fmt = (
-        std::is_same<T, float>::value
-            ? "%  f"
-            : "%  lf"
-    );
-
-    enum { S = ct_strlen(fmt)+1 };
-    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
-
-    std::sscanf(ptr, fmtbuf.data(), val);
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_pointer<T>::value>
-from_string_impl(T *val, const char *, std::size_t) {
-    *val = nullptr;
-}
-
 /*************************************************************************************************/
-// check a sequence for existence of a type
-// based on https://stackoverflow.com/questions/55941964
+// type name
+// based on https://bitwizeshift.github.io/posts/2021/03/09/getting-an-unmangled-type-name-at-compile-time/
 
-template<typename, typename>
-struct contains;
-
-template<typename Car, typename... Cdr, typename Needle>
-struct contains<std::tuple<Car, Cdr...>, Needle>: contains<std::tuple<Cdr...>, Needle>
-{};
-
-template<typename... Cdr, typename Needle>
-struct contains<std::tuple<Needle, Cdr...>, Needle>: std::true_type
-{};
-
-template<typename Needle>
-struct contains<std::tuple<>, Needle>: std::false_type
-{};
-
-template<typename Needle, typename ...Types>
-constexpr bool contains_f(const Types &...) {
-    return contains<std::tuple<Types...>, Needle>::value;
+template<std::size_t...Idxs>
+constexpr auto substring_as_array(std::string_view str, std::index_sequence<Idxs...>) {
+    return std::array{str[Idxs]...};
 }
 
-template<typename Needle>
-constexpr bool contains_f() {
-    return false;
+template <typename T>
+constexpr auto type_name_array() noexcept {
+#if defined(__clang__)
+    constexpr auto prefix   = std::string_view{"[T = "};
+    constexpr auto suffix   = std::string_view{"]"};
+    constexpr auto function = std::string_view{__PRETTY_FUNCTION__};
+#elif defined(__GNUC__)
+    constexpr auto prefix   = std::string_view{"with T = "};
+    constexpr auto suffix   = std::string_view{"]"};
+    constexpr auto function = std::string_view{__PRETTY_FUNCTION__};
+#elif defined(_MSC_VER)
+    constexpr auto prefix   = std::string_view{"type_name_array<"};
+    constexpr auto suffix   = std::string_view{">(void)"};
+    constexpr auto function = std::string_view{__FUNCSIG__};
+#else
+#   error Unsupported compiler
+#endif
+    constexpr auto double_colon = std::string_view{"::"};
+
+    constexpr auto start = function.find(prefix) + prefix.size();
+    constexpr auto end = function.rfind(suffix);
+    static_assert(start < end);
+
+    constexpr auto name = function.substr(start, (end - start));
+    constexpr auto double_colon_pos = name.find(double_colon);
+    if constexpr ( double_colon_pos != std::string_view::npos ) {
+        constexpr auto name2 = name.substr(double_colon_pos + double_colon.size()
+            ,end - (double_colon_pos + double_colon.size()));
+        return substring_as_array(name2, std::make_index_sequence<name2.size()>{});
+    } else {
+        return substring_as_array(name, std::make_index_sequence<name.size()>{});
+    }
 }
 
-template <typename Out, typename In>
-struct filter;
-
-template <typename... Out, typename InCar, typename... InCdr>
-struct filter<std::tuple<Out...>, std::tuple<InCar, InCdr...>> {
-    using type = typename std::conditional<
-         contains<std::tuple<Out...>, InCar>::value
-        ,filter<std::tuple<Out...>, std::tuple<InCdr...>>
-        ,filter<std::tuple<Out..., InCar>, std::tuple<InCdr...>>
-    >::type::type;
-};
-
-template <typename Out>
-struct filter<Out, std::tuple<>> {
-    using type = Out;
+template <typename T>
+struct type_name_holder {
+    static inline constexpr auto value = type_name_array<T>();
 };
 
 template <typename T>
-using without_duplicates = typename filter<std::tuple<>, T>::type;
+constexpr auto type_name() noexcept -> std::string_view {
+    constexpr auto& value = type_name_holder<T>::value;
+    return std::string_view{value.data(), value.size()};
+}
 
 /*************************************************************************************************/
-// is callable
+// to_tuple
 
-template<typename F>
-using has_operator_call_t = decltype(&F::operator());
-
-template<typename F, typename = void>
-struct is_callable : std::false_type
-{};
-
-template<typename...>
-using void_t = void;
-
-template<typename F>
-struct is_callable<
-     F
-    ,void_t<
-        has_operator_call_t<
-            typename std::decay<F>::type
-        >
-    >
-> : std::true_type
-{};
-
-struct optional_bool_printer {
-    static void print(std::ostream &os, const cmdargs::optional_type<bool> &v)
-    { os << (v.value() ? "true" : "false"); }
-    template<typename T>
-    static void print(std::ostream &os, const cmdargs::optional_type<T> &v)
-    { os << v.value(); }
-};
-
-/*************************************************************************************************/
-// compound type to tuple
 struct any_type { template<class T> constexpr operator T(); };
 
 #if defined(__GNUC__) && !defined(__clang__)
@@ -436,374 +154,727 @@ template<typename T>
 using to_tuple_size = std::integral_constant<std::size_t, to_tuple_size_impl<T>()-1>;
 
 template<typename T>
-auto to_tuple_impl(const T &, std::integral_constant<std::size_t, 0>) {
+auto to_tuple_impl(T &&, std::integral_constant<std::size_t, 0>) noexcept {
     return std::make_tuple();
 }
 
-#define __CMDARGS_TO_TUPLE_P(idx, data) , p##idx
-#define __CMDARGS_TO_TUPLE_SPECIALIZATION(idx, data) \
-    template<typename T> \
-    auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, idx + 1>) { \
-        const auto& [p __CMDARGS_REPEAT_##idx(__CMDARGS_TO_TUPLE_P, data)] = object; \
-        return std::make_tuple(p __CMDARGS_REPEAT_##idx(__CMDARGS_TO_TUPLE_P, data)); \
-    }
-
-#ifndef __CMDARGS_TO_TUPLE_MAX
-#define __CMDARGS_TO_TUPLE_MAX 20
-#endif
-
-__CMDARGS_REPEAT(__CMDARGS_TO_TUPLE_MAX, __CMDARGS_TO_TUPLE_SPECIALIZATION, ~)
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 1>) noexcept {
+    auto&& [p0] = object;
+    return std::make_tuple(p0);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 2>) noexcept {
+    auto&& [p0, p1] = object;
+    return std::make_tuple(p0, p1);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 3>) noexcept {
+    auto&& [p0, p1, p2] = object;
+    return std::make_tuple(p0, p1, p2);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 4>) noexcept {
+    auto&& [p0, p1, p2, p3] = object;
+    return std::make_tuple(p0, p1, p2, p3);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 5>) noexcept {
+    auto&& [p0, p1, p2, p3, p4] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 6>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 7>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 8>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 9>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 10>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 11>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 12>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 13>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 14>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 15>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 16>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 17>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 18>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 19>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18);
+}
+template<typename T>
+auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 20>) noexcept {
+    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, 19);
+}
 
 template<
      typename T
     ,typename = struct current_value
-    ,std::size_t = __CMDARGS_TO_TUPLE_MAX
+    ,std::size_t = 21
     ,typename = struct required_value
     ,std::size_t N
 >
-auto to_tuple_impl(const T &, std::integral_constant<std::size_t, N>) {
-    static_assert(N <= __CMDARGS_TO_TUPLE_MAX, "Please increase __CMDARGS_TO_TUPLE_MAX");
+auto to_tuple_impl(T &&, std::integral_constant<std::size_t, N>) noexcept {
+    static_assert(N < 21, "Please increase the number of placeholders");
 }
 
 template<
      typename T
     ,typename = std::enable_if_t<std::is_class<T>::value>
+    ,typename S = to_tuple_size<std::decay_t<T>>
 >
-auto to_tuple(const T &kw) {
-    return to_tuple_impl(kw, to_tuple_size<std::decay_t<T>>{});
+auto to_tuple(const T &kw) noexcept {
+    return to_tuple_impl(kw, S{});
 }
+
+
+/*************************************************************************************************/
+// the alias for std::optional
+
+template<typename T>
+using optional_type = std::optional<T>;
+
+inline std::ostream& operator<< (std::ostream &os, const optional_type<bool> &v) {
+    if ( v ) {
+        os << v.value();
+    } else {
+        os << "<UNINITIALIZED>";
+    }
+
+    return os;
+}
+
+/*************************************************************************************************/
+// string ops
+
+inline void ltrim(std::string &s, const char* t = " \t\n\r") noexcept
+{ s.erase(0, s.find_first_not_of(t)); }
+
+inline void rtrim(std::string &s, const char* t = " \t\n\r") noexcept
+{ s.erase(s.find_last_not_of(t) + 1); }
+
+inline void trim(std::string &s, const char* t = " \t\n\r") noexcept
+{ rtrim(s, t); ltrim(s, t); }
+
+constexpr std::size_t ct_strlen(const char *s) noexcept {
+    const char *p = s;
+    for ( ; *p; ++p )
+        ;
+    return p - s;
+}
+
+inline std::string cat_vector(
+     const char *pref
+    ,const std::vector<std::string_view> &names
+    ,bool double_quoted = false) noexcept
+{
+    std::string res;
+    for ( auto it = names.begin(); it != names.end(); ++it ) {
+        if ( double_quoted ) {
+            res += "\"";
+        }
+        res += (pref ? pref : "");
+        res += (*it);
+        if ( double_quoted ) {
+            res += "\"";
+        }
+        if ( std::next(it) != names.end() ) {
+            res += ", ";
+        }
+    }
+
+    return res;
+}
+
+template<std::size_t N>
+constexpr auto ct_init_array(const char *s, char c0, char c1) noexcept {
+    std::array<char, N> res{};
+    for ( auto i = 0u; *s; ++s, ++i ) {
+        res[i] = *s;
+    }
+    res[1] = c0;
+    res[2] = c1;
+
+    return res;
+}
+
+template<typename T>
+typename std::enable_if_t<std::is_same<T, std::string>::value>
+from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+    val->assign(ptr, len);
+}
+
+template<typename T>
+typename std::enable_if_t<std::is_same<T, bool>::value>
+from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+    *val = std::string_view{ptr, len} == "true";
+}
+
+template<typename T>
+typename std::enable_if_t<
+    std::is_integral<T>::value
+        && !std::is_same<T, bool>::value
+>
+from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+    constexpr const char *fmt = (
+        std::is_unsigned<T>::value
+        ? (std::is_same<T, std::uint8_t>::value
+            ? "%  " SCNu8 : std::is_same<T, std::uint16_t>::value
+                ? "%  " SCNu16 : std::is_same<T, std::uint32_t>::value
+                    ? "%  " SCNu32
+                    : "%  " SCNu64
+        )
+        : (std::is_same<T, std::int8_t>::value
+            ? "%  " SCNi8 : std::is_same<T, std::int16_t>::value
+                ? "%  " SCNi16 : std::is_same<T, std::int32_t>::value
+                    ? "%  " SCNi32
+                    : "%  " SCNi64
+        )
+    );
+
+    enum { S = ct_strlen(fmt)+1 };
+    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
+
+    std::sscanf(ptr, fmtbuf.data(), val);
+}
+
+template<typename T>
+typename std::enable_if_t<std::is_enum<T>::value>
+from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+    typename std::underlying_type<T>::type tmp{};
+    from_string_impl(&tmp, ptr, len);
+    *val = static_cast<T>(tmp);
+}
+
+template<typename T>
+typename std::enable_if_t<std::is_floating_point<T>::value>
+from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+    constexpr const char *fmt = (
+        std::is_same<T, float>::value
+            ? "%  f"
+            : "%  lf"
+    );
+
+    enum { S = ct_strlen(fmt)+1 };
+    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
+
+    std::sscanf(ptr, fmtbuf.data(), val);
+}
+
+template<typename T>
+typename std::enable_if_t<std::is_pointer<T>::value>
+from_string_impl(T *val, const char *, std::size_t) noexcept {
+    *val = nullptr;
+}
+
+/*************************************************************************************************/
+// contains and filter
+
+template<
+     template<typename, typename> typename Pred
+    ,typename T
+    ,typename ...Types
+>
+struct contains
+    :std::disjunction<Pred<T, Types>...>
+{};
+
+template<
+     template<typename, typename> typename Pred
+    ,typename T
+    ,typename ...Types
+>
+struct contains<Pred, T, std::tuple<Types...>>
+    :contains<Pred, T, Types...>
+{};
+
+template<
+     template<typename, typename> typename Pred
+    ,typename Out
+    ,typename In
+>
+struct filter;
+
+template<
+     template<typename, typename> typename Pred
+    ,typename... Out
+    ,typename InCar
+    ,typename... InCdr
+>
+struct filter<Pred, std::tuple<Out...>, std::tuple<InCar, InCdr...>> {
+    using type = typename std::conditional<
+         contains<Pred, InCar, Out...>::value
+        ,filter<Pred, std::tuple<Out...>, std::tuple<InCdr...>>
+        ,filter<Pred, std::tuple<Out..., InCar>, std::tuple<InCdr...>>
+    >::type::type;
+};
+
+template<
+     template<typename, typename> typename Pred
+    ,typename Out
+>
+struct filter<Pred, Out, std::tuple<>> {
+    using type = Out;
+};
+
+template<
+     template<typename, typename> typename Pred
+    ,typename T
+>
+using without_duplicates = typename filter<Pred, std::tuple<>, T>::type;
+
+/*************************************************************************************************/
+// is callable
+
+template<class T>
+struct type_identity {
+    using type = T;
+};
+
+template<typename F>
+using has_operator_call_t = decltype(&F::operator());
+
+template<typename F, typename = void>
+struct is_callable: std::false_type
+{};
+
+template<typename...>
+using void_t = void;
+
+template<typename F>
+struct is_callable<
+     F
+    ,void_t<
+        has_operator_call_t<
+            typename std::decay<F>::type
+        >
+    >
+>: std::true_type
+{};
+
+struct optional_bool_printer {
+    static void print(std::ostream &os, const optional_type<bool> &v)
+    { os << (v.value() ? "true" : "false"); }
+    template<typename T>
+    static void print(std::ostream &os, const optional_type<T> &v)
+    { os << v.value(); }
+};
+
+/*************************************************************************************************/
+// callable traits
+
+template<typename F>
+struct callable_traits: callable_traits<decltype(&F::operator())>
+{};
+
+template<typename R, typename Arg0>
+struct callable_traits<R(*)(Arg0)> {
+    using signature = R(Arg0);
+    using function  = std::function<signature>;
+    static constexpr std::size_t size = 1;
+};
+
+template<typename R, typename Arg0, typename Arg1>
+struct callable_traits<R(*)(Arg0, Arg1)> {
+    using signature = R(Arg0, Arg1);
+    using function  = std::function<signature>;
+    static constexpr std::size_t size = 2;
+};
+
+template<typename R, typename Arg0>
+struct callable_traits<R(&)(Arg0)> {
+    using signature = R(Arg0);
+    using function  = std::function<signature>;
+    static constexpr std::size_t size = 1;
+};
+
+template<typename R, typename Arg0, typename Arg1>
+struct callable_traits<R(&)(Arg0, Arg1)> {
+    using signature = R(Arg0, Arg1);
+    using function  = std::function<signature>;
+    static constexpr std::size_t size = 2;
+};
+
+template<typename Obj, typename R, typename Arg0>
+struct callable_traits<R(Obj::*)(Arg0) const> {
+    using signature = R(Arg0);
+    using function  = std::function<signature>;
+    static constexpr std::size_t size = 1;
+};
+
+template<typename Obj, typename R, typename Arg0, typename Arg1>
+struct callable_traits<R(Obj::*)(Arg0, Arg1) const> {
+    using signature = R(Arg0, Arg1);
+    using function  = std::function<signature>;
+    static constexpr std::size_t size = 2;
+};
+
+/*************************************************************************************************/
+// relations
+
+enum class e_relation_type { AND, OR, NOT };
+
+inline const char* relation_str(e_relation_type r) noexcept {
+    static const char *arr[] = {
+         "AND"
+        ,"OR"
+        ,"NOT"
+        ,"UNKNOWN"
+    };
+
+    return arr[static_cast<unsigned>(r)];
+}
+
+template<e_relation_type E, typename ...Types>
+struct relations_list {
+    std::array<std::string_view, sizeof...(Types)> list;
+};
+
+// and
+template<typename Unused, typename T>
+struct relation_pred_and: std::false_type
+{};
+
+template<typename Unused, typename ...Types>
+struct relation_pred_and<Unused, relations_list<e_relation_type::AND, Types...>>
+    :std::true_type
+{};
+
+// or
+template<typename Unused, typename T>
+struct relation_pred_or: std::false_type
+{};
+
+template<typename Unused, typename ...Types>
+struct relation_pred_or<Unused, relations_list<e_relation_type::OR, Types...>>
+    :std::true_type
+{};
+
+// not
+template<typename Unused, typename T>
+struct relation_pred_not: std::false_type
+{};
+
+template<typename Unused, typename ...Types>
+struct relation_pred_not<Unused, relations_list<e_relation_type::NOT, Types...>>
+    :std::true_type
+{};
+
+// generalized
+template<typename T>
+struct is_relation_type
+    :std::disjunction<
+         relation_pred_and<char, T>
+        ,relation_pred_or<char, T>
+        ,relation_pred_not<char, T>
+    >
+{};
+
+// helpers
+template<typename ...Types>
+struct contains_and
+    :contains<relation_pred_and, char, Types...>
+{};
+
+template<typename ...Types>
+struct contains_or
+    :contains<relation_pred_or, char, Types...>
+{};
+
+template<typename ...Types>
+struct contains_not
+    :contains<relation_pred_not, char, Types...>
+{};
+
+// get by relation
+template<
+     template<typename, typename> typename Pred
+    ,typename ...Rest
+>
+struct get_relation_list;
+
+template<
+     template<typename, typename> typename Pred
+    ,typename T
+    ,typename ...Rest
+>
+struct get_relation_list<Pred, T, Rest...> {
+    using type = typename std::conditional<
+         Pred<char, T>::value
+        ,type_identity<T>
+        ,get_relation_list<Pred, Rest...>
+    >::type::type;
+};
+
+template<
+    template<typename, typename> typename Pred
+>
+struct get_relation_list<Pred> {};
+
+/*************************************************************************************************/
 
 } // ns details
 
 /*************************************************************************************************/
 
-#ifdef CMDARGS_OPTION_ASSIGN_ENABLED
-#   define __CMDARGS_EXPAND_EXPR(...) __VA_ARGS__
-#else
-#   define __CMDARGS_EXPAND_EXPR(...)
-#endif
-
-/*************************************************************************************************/
-
-#define CMDARGS_OPTION_DECLARE(OPTION_NAME, OPTION_TYPE_NAME, OPTION_TYPE, DESCRIPTION) \
-    struct OPTION_TYPE_NAME: ::cmdargs::option_base { \
-        static constexpr const char* m_opt_name() { return __CMDARGS_STRINGIZE(OPTION_NAME); } \
-        static constexpr const char* m_opt_type() { return __CMDARGS_STRINGIZE(OPTION_TYPE); } \
-        static constexpr const char *m_opt_descr() { return __CMDARGS_STRINGIZE(DESCRIPTION); } \
-        \
-        using value_type      = OPTION_TYPE; \
-        using optional_type   = ::cmdargs::optional_type<value_type>; \
-        using expression_list = ::cmdargs::expression_list; \
-        using validator_type  = std::function<bool(const char *str, std::size_t len)>; \
-        using converter_type  = std::function<bool(void *dst, const char *str, std::size_t len)>; \
-        \
-        /* data members */ \
-        bool m_required; \
-        optional_type m_val; \
-        validator_type m_validator; \
-        converter_type m_converter; \
-        std::vector<const char *> m_and_list{}; \
-        std::vector<const char *> m_or_list{}; \
-        std::vector<const char *> m_not_list{}; \
-        \
-        OPTION_TYPE_NAME& operator= (const OPTION_TYPE_NAME &) = delete; \
-        OPTION_TYPE_NAME& operator= (OPTION_TYPE_NAME &&) = delete; \
-        \
-        OPTION_TYPE_NAME(const OPTION_TYPE_NAME &r) = default; \
-        OPTION_TYPE_NAME(OPTION_TYPE_NAME &&r) = default; \
-        /* when the following 'operator=(T &&)' is enabled then a kwords-group \
-         * can't be declared inside function. \
-         */ \
-        __CMDARGS_EXPAND_EXPR( \
-            template<typename T> \
-            OPTION_TYPE_NAME operator= (T &&v) const { \
-                OPTION_TYPE_NAME res; \
-                res.m_required = m_required; \
-                res.m_val      = std::forward<T>(v); \
-                res.m_validator= m_validator; \
-                res.m_converter= m_converter; \
-                res.m_and_list = m_and_list; \
-                res.m_or_list  = m_or_list; \
-                res.m_not_list = m_not_list; \
-                return res; \
-            } \
-        ) \
-        /* the following set of the constructors can't be replaced \
-         * with a single templated variadic-list constructor because \
-         * then this struct become not-braces-constructible, which is required \
-         * for the 'to_tuple()' function. */ \
-        /* default */ \
-        OPTION_TYPE_NAME() \
-            :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
-            ,m_required{true} \
-            ,m_val{} \
-            ,m_validator{} \
-            ,m_converter{} \
-        {} \
-        /* default - optional */ \
-        OPTION_TYPE_NAME(const ::cmdargs::optional_t &) \
-            :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
-            ,m_required{false} \
-            ,m_val{} \
-            ,m_validator{} \
-            ,m_converter{} \
-        {} \
-        /* default with cond list */ \
-        OPTION_TYPE_NAME( \
-             expression_list expr0 \
-            ,expression_list expr1 = {} \
-            ,expression_list expr2 = {} \
-            ,expression_list expr3 = {} \
-            ,expression_list expr4 = {} \
-        ) \
-            :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
-            ,m_required{true} \
-            ,m_val{} \
-            ,m_validator{} \
-            ,m_converter{} \
-        { get_conditions(std::move(expr0), std::move(expr1), std::move(expr2) \
-            , std::move(expr3), std::move(expr4)); } \
-        /* default with cond list and category */ \
-        OPTION_TYPE_NAME( \
-             const ::cmdargs::optional_t & \
-            ,expression_list expr0 \
-            ,expression_list expr1 = {} \
-            ,expression_list expr2 = {} \
-            ,expression_list expr3 = {} \
-            ,expression_list expr4 = {} \
-        ) \
-            :option_base{m_opt_name(), m_opt_type(), m_opt_descr()} \
-            ,m_required{false} \
-            ,m_val{} \
-            ,m_validator{} \
-            ,m_converter{} \
-        { get_conditions(std::move(expr0), std::move(expr1), std::move(expr2) \
-            , std::move(expr3), std::move(expr4)); } \
-        \
-        bool is_required() const override { return m_required; } \
-        bool is_optional() const override { return !is_required(); } \
-        bool is_set() const override { return m_val.has_value(); } \
-        bool is_bool() const override { return std::is_same<value_type, bool>::value; } \
-        \
-        const std::vector<const char *>& and_list() const override { return m_and_list; } \
-        const std::vector<const char *>& or_list() const override { return m_or_list; } \
-        const std::vector<const char *>& not_list() const override { return m_not_list; } \
-        \
-        bool has_validator() const override { return static_cast<bool>(m_validator); } \
-        bool validate(const char *str, std::size_t len) const override { \
-            return m_validator(str, len); \
-        } \
-        \
-        bool has_converter() const override { return static_cast<bool>(m_converter); } \
-        bool convert(const char *str, std::size_t len) override { \
-            value_type v{}; \
-            if ( m_converter(std::addressof(v), str, len) ) { \
-                m_val = std::move(v); \
-                return true; \
-            } \
-            return false; \
-        } \
-        \
-        void from_string(const char *ptr, std::size_t len) { \
-            value_type v{}; \
-            ::cmdargs::details::from_string_impl(&v, ptr, len); \
-            m_val = std::move(v); \
-        } \
-        std::ostream& dump(std::ostream &os) const override { \
-            os \
-                << "this=" << this << ": name=" << name() << "(" << type() << "): req=" << is_required() \
-                << ", set=" << is_set() << ", and=" << m_and_list.size() \
-                << ", or=" << m_or_list.size() << ", not=" << m_not_list.size() \
-                << ", val=" << m_val \
-            ; \
-            return os; \
-        } \
-        void get_conditions(expression_list expr0, expression_list expr1 \
-            , expression_list expr2, expression_list expr3, expression_list expr4) \
-        { \
-            for ( auto &&it: {std::move(expr0), std::move(expr1), std::move(expr2) \
-                , std::move(expr3), std::move(expr4)} ) \
-            { \
-                if ( it.is_empty() ) { continue; } \
-                switch ( it.type() ) { \
-                    case ::cmdargs::expression_list::AND: { m_and_list = it.list(); break; } \
-                    case ::cmdargs::expression_list::OR: { m_or_list = it.list(); break; } \
-                    case ::cmdargs::expression_list::NOT: { m_not_list = it.list(); break; } \
-                    case ::cmdargs::expression_list::VALIDATOR: { m_validator = it.validator(); break; } \
-                    case ::cmdargs::expression_list::CONVERTER: { m_converter = it.converter(); break; } \
-                    case ::cmdargs::expression_list::UNDEFINED: { \
-                        assert("unexpected UNDEFINED expression_list!" == nullptr); break; } \
-                } \
-            } \
-        } \
-    }
-
-#define CMDARGS_OPTION_INIT(OPTION_NAME, ...) \
-    const OPTION_NAME##_t OPTION_NAME{ __VA_ARGS__ }
-
-#define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, DESCRIPTION, ...) \
-    /* type */ CMDARGS_OPTION_DECLARE(OPTION_NAME, OPTION_NAME##_t, OPTION_TYPE, DESCRIPTION); \
-    /* var  */ CMDARGS_OPTION_INIT(OPTION_NAME, __VA_ARGS__)
-
-#define CMDARGS_OPTION_ADD_HELP() \
-    CMDARGS_OPTION_ADD(help, bool, "show help message", optional)
-
-#define CMDARGS_OPTION_ADD_VERSION() \
-    CMDARGS_OPTION_ADD(version, bool, "show version message", optional)
-
-/*************************************************************************************************/
-
-struct option_base {
-    explicit option_base(const char *name, const char *type, const char *descr)
-        :m_name{name}
-        ,m_type{type}
-        ,m_descr{descr}
-    {}
-    const char* name() const { return m_name; }
-    const char* type() const { return m_type; }
-    const char* description() const { return m_descr; }
-
-    virtual bool is_required() const = 0;
-    virtual bool is_optional() const = 0;
-    virtual bool is_set() const = 0;
-    virtual bool is_bool() const = 0;
-
-    virtual std::ostream& dump(std::ostream &os) const = 0;
-
-    virtual const std::vector<const char *>&
-    and_list() const = 0;
-    virtual const std::vector<const char *>&
-    or_list() const = 0;
-    virtual const std::vector<const char *>&
-    not_list() const = 0;
-
-    virtual bool has_validator() const = 0;
-    virtual bool validate(const char *str, std::size_t len) const = 0;
-
-    virtual bool has_converter() const = 0;
-    virtual bool convert(const char *str, std::size_t len) = 0;
-
-private:
-    const char *m_name;
-    const char *m_type;
-    const char *m_descr;
-};
-
-/*************************************************************************************************/
-
-struct optional_t {};
-
-struct expression_list {
-    enum e_type {
-         UNDEFINED // 0
-        ,AND       // 1
-        ,OR        // 2
-        ,NOT       // 3
-        ,VALIDATOR // 4
-        ,CONVERTER // 5
-    };
-
-    expression_list(const expression_list &) = default;
-    expression_list(expression_list &&) = default;
-
-    expression_list() = default;
-    expression_list(e_type t, const std::initializer_list<const char *> list)
-        :m_type{t}
-        ,m_list{list}
-        ,m_validator{}
-        ,m_converter{}
-    {}
-
-    using validator_func = std::function<bool(const char *ptr, std::size_t len)>;
-    expression_list(e_type t, validator_func func)
-        :m_type{t}
-        ,m_list{}
-        ,m_validator{std::move(func)}
-        ,m_converter{}
-    { assert(t == VALIDATOR); }
-
-    using converter_func = std::function<bool(void *dst, const char *ptr, std::size_t len)>;
-    expression_list(e_type t, converter_func func)
-        :m_type{t}
-        ,m_list{}
-        ,m_validator{}
-        ,m_converter{std::move(func)}
-    { assert(t == CONVERTER); }
-
-    e_type type() const { return m_type; }
-    const char* type_name() const {
-        static const char *arr[] = {
-            "UNDEFINED" // 0
-           ,"AND"       // 1
-           ,"OR"        // 2
-           ,"NOT"       // 3
-           ,"VALIDATOR" // 4
-           ,"CONVERTER" // 5
-        };
-
-        return arr[static_cast<std::size_t>(m_type)];
-    }
-    auto list() const { return m_list; }
-    auto validator() const { return m_validator; }
-    auto converter() const { return m_converter; }
-
-    bool is_empty() const {
-        bool empty = list().empty()
-            && false == static_cast<bool>(m_validator)
-            && false == static_cast<bool>(m_converter)
-        ;
-        return empty;
-    }
-
-private:
-    e_type m_type;
-    std::vector<const char *> m_list;
-    validator_func m_validator;
-    converter_func m_converter;
-};
-
-/*************************************************************************************************/
-
 struct kwords_group {
+    struct optional_t {};
     static constexpr optional_t optional{};
 
     template<typename ...Types>
-    static auto and_(const Types &...args) {
+    static auto and_(const Types &...args) noexcept {
         using tuple_type = std::tuple<typename std::decay<Types>::type...>;
         static_assert(
-             std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<tuple_type>>::value
+            std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return expression_list{expression_list::e_type::AND, {args.m_opt_name()...}};
+        return details::relations_list<details::e_relation_type::AND, Types...>{args.name()...};
     }
     template<typename ...Types>
-    static auto or_(const Types &...args) {
+    static auto or_(const Types &...args) noexcept {
         using tuple_type = std::tuple<typename std::decay<Types>::type...>;
         static_assert(
-             std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<tuple_type>>::value
+            std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return expression_list{expression_list::e_type::OR, {args.m_opt_name()...}};
+        return details::relations_list<details::e_relation_type::OR, Types...>{args.name()...};
     }
     template<typename ...Types>
-    static auto not_(const Types &...args) {
+    static auto not_(const Types &...args) noexcept {
         using tuple_type = std::tuple<typename std::decay<Types>::type...>;
         static_assert(
-             std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<tuple_type>>::value
+            std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
             ,"duplicates of keywords is detected!"
         );
-        return expression_list{expression_list::e_type::NOT, {args.m_opt_name()...}};
+        return details::relations_list<details::e_relation_type::NOT, Types...>{args.name()...};
+    }
+
+    template<typename F>
+    static auto validator_(F &&f) noexcept {
+        static_assert(details::is_callable<F>::value);
+        using signature = typename details::callable_traits<F>::signature;
+        static_assert(std::is_same<signature, bool(const std::string_view str)>::value);
+        return std::function<signature>{std::forward<F>(f)};
     }
     template<typename F>
-    static auto validator_(F &&f) {
-        return expression_list(expression_list::e_type::VALIDATOR, std::forward<F>(f));
+    static auto converter_(F &&f) noexcept {
+        static_assert(details::is_callable<F>::value);
+        static_assert(details::callable_traits<F>::size == 2);
+        using signature = typename details::callable_traits<F>::signature;
+        return std::function<signature>{std::forward<F>(f)};
     }
-    template<typename F>
-    static auto converter_(F &&f) {
-        return expression_list(expression_list::e_type::CONVERTER, std::forward<F>(f));
+};
+
+/*************************************************************************************************/
+
+template<typename ID, typename V>
+struct option {
+    using type_id = ID;
+    using value_type = V;
+    using optional_type  = details::optional_type<value_type>;
+    using validator_type = std::function<bool(const std::string_view str)>;
+    using converter_type = std::function<bool(value_type &dst, std::string_view str)>;
+
+    static constexpr auto m_name = details::type_name<ID>();
+    const std::string_view m_type_name;
+    const std::string_view m_description;
+    const bool m_required;
+    optional_type m_value;
+    validator_type m_validator;
+    converter_type m_converter;
+    const std::vector<std::string_view> m_relation_and;
+    const std::vector<std::string_view> m_relation_or;
+    const std::vector<std::string_view> m_relation_not;
+
+    option& operator= (const option &) = delete;
+    option& operator= (option &&) = delete;
+    option(const option &) = default;
+    option(option &&) = default;
+
+    template<typename ...Args>
+    option(const char *type, const char *descr, std::tuple<Args...> as_tuple) noexcept
+        :m_type_name{type}
+        ,m_description{descr}
+        ,m_required{!details::contains<std::is_same, kwords_group::optional_t, Args...>::value}
+        ,m_value{}
+        ,m_validator{init_visitor<validator_type>(as_tuple)}
+        ,m_converter{init_visitor<converter_type>(as_tuple)}
+        ,m_relation_and{init_cond_list<details::e_relation_type::AND>(as_tuple)}
+        ,m_relation_or{init_cond_list<details::e_relation_type::OR>(as_tuple)}
+        ,m_relation_not{init_cond_list<details::e_relation_type::NOT>(as_tuple)}
+    {}
+    ~option() noexcept = default;
+
+    template<typename U>
+    option operator= (U &&r) const noexcept {
+        option res{
+             m_description
+            ,m_required
+            ,std::forward<U>(r)
+            ,m_validator
+            ,m_converter
+            ,m_relation_and
+            ,m_relation_or
+            ,m_relation_not
+        };
+        return res;
+    }
+
+    std::string_view name() const noexcept { return m_name; }
+    std::string_view type_name() const noexcept { return m_type_name; }
+    std::string_view description() const noexcept { return m_description; }
+    bool is_required() const noexcept { return m_required; }
+    bool is_optional() const noexcept { return !is_required(); }
+    bool is_set() const noexcept { return m_value.has_value(); }
+    bool is_bool() const noexcept { return std::is_same<value_type, bool>::value; }
+
+    const std::vector<std::string_view>& and_list() const noexcept { return m_relation_and; }
+    const std::vector<std::string_view>& or_list() const noexcept { return m_relation_or; }
+    const std::vector<std::string_view>& not_list() const noexcept { return m_relation_not; }
+
+    bool has_validator() const noexcept { return static_cast<bool>(m_validator); }
+    bool validate(const char *str, std::size_t len) const noexcept { return m_validator({str, len}); }
+    bool has_converter() const noexcept { return static_cast<bool>(m_converter); }
+    bool convert(const char *str, std::size_t len) {
+        value_type v{};
+        if ( m_converter(v, {str, len}) ) {
+            m_value = std::move(v);
+            return true;
+        }
+        return false;
+    }
+
+    void from_string(const char *ptr, std::size_t len) {
+        value_type v{};
+        details::from_string_impl(&v, ptr, len);
+        m_value = std::move(v);
+    }
+
+    std::ostream& dump(std::ostream &os) const {
+        os
+            << "name         : " << m_name << std::endl
+            << "type         : " << m_type_name << std::endl
+            << "description  : " << '"' << m_description << '"' << std::endl
+            << "is required  : " << (m_required ? "true" : "false") << std::endl
+            << "value        : "
+        ;
+        if ( m_value.has_value() ) {
+            os << m_value.value();
+        } else {
+            os << "<UNINITIALIZED>";
+        }
+        os  << std::endl
+            << "has validator: " << (m_validator ? "true" : "false") << std::endl
+            << "has converter: " << (m_converter ? "true" : "false") << std::endl
+            << "relation  AND: " << m_relation_and.size();
+        if ( m_relation_and.size() )
+        { os << " (" << details::cat_vector("--", m_relation_and) << ")" << std::endl; }
+        else { os << std::endl; }
+        os  << "relation   OR: " << m_relation_or.size();
+        if ( m_relation_or.size() )
+        { os << " (" << details::cat_vector("--", m_relation_or) << ")" << std::endl; }
+        else { os << std::endl; }
+        os  << "relation  NOT: " << m_relation_not.size();
+        if ( m_relation_not.size() )
+        { os << " (" << details::cat_vector("--", m_relation_not) << ")" << std::endl; }
+        else { os << std::endl; }
+
+        return os;
+    }
+
+private:
+    template<typename Req, typename ...Types>
+    Req init_visitor(std::tuple<Types...> &tuple) noexcept {
+        if constexpr ( details::contains<std::is_same, Req, Types...>::value ) {
+            return std::move(std::get<Req>(tuple));
+        } else {
+            return Req{};
+        }
+    }
+    template<details::e_relation_type Rel, typename ...Types>
+    static std::vector<std::string_view>
+    init_cond_list(const std::tuple<Types...> &tuple) noexcept {
+        if constexpr ( Rel == details::e_relation_type::AND
+            && details::contains_and<Types...>::value )
+        {
+            using list_type = typename details::get_relation_list<
+                details::relation_pred_and, Types...>::type;
+            const auto &list = std::get<list_type>(tuple).list;
+            if ( list.size() ) return {std::begin(list), std::end(list)};
+        }
+        if constexpr ( Rel == details::e_relation_type::OR
+            && details::contains_or<Types...>::value )
+        {
+            using list_type = typename details::get_relation_list<
+                details::relation_pred_or, Types...>::type;
+            const auto &list = std::get<list_type>(tuple).list;
+            if ( list.size() ) return {std::begin(list), std::end(list)};
+        }
+        if constexpr ( Rel == details::e_relation_type::NOT
+            && details::contains_not<Types...>::value )
+        {
+            using list_type = typename details::get_relation_list<
+                details::relation_pred_not, Types...>::type;
+            const auto &list = std::get<list_type>(tuple).list;
+            if ( list.size() ) return {std::begin(list), std::end(list)};
+        }
+
+        return {};
     }
 };
 
@@ -814,7 +885,7 @@ struct args {
     using container_type = std::tuple<typename std::decay<Args>::type...>;
     static_assert(
          std::tuple_size<container_type>::value
-            == std::tuple_size<details::without_duplicates<container_type>>::value
+            == std::tuple_size<details::without_duplicates<std::is_same, container_type>>::value
         ,"duplicates of keywords are detected!"
     );
 
@@ -828,24 +899,17 @@ struct args {
     container_type& kwords() { return m_kwords; }
     const container_type& kwords() const { return m_kwords; }
 
+    constexpr std::size_t size() const { return sizeof...(Args); }
     template<typename T>
-    struct has_type {
-        static constexpr bool value = !std::is_same<
-             std::integer_sequence<bool, false, std::is_same<T, typename std::decay<Args>::type>::value...>
-            ,std::integer_sequence<bool, std::is_same<T, typename std::decay<Args>::type>::value..., false>
-        >::value;
-    };
-
-    constexpr std::size_t size() const { return std::tuple_size<container_type>::value; }
-
+    static constexpr bool contains(const T &)
+    { return details::contains<std::is_same, T, Args...>::value; }
     template<typename T>
-    constexpr bool has(const T &) const { return has_type<T>::value; }
-    template<typename T>
-    constexpr bool has() const { return has_type<T>::value; }
+    static constexpr bool contains()
+    { return details::contains<std::is_same, T, Args...>::value; }
 
     template<typename T>
     bool is_set(const T &) const {
-        static_assert(has_type<T>::value, "");
+        static_assert(contains<T>(), "");
 
         return std::get<T>(m_kwords).is_set();
     }
@@ -853,12 +917,12 @@ struct args {
     bool is_valid_name(const char *name) const {
         return check_for_unexpected(name) == nullptr;
     }
-    bool is_bool_type(const char *name) const {
+    bool is_bool_type(const std::string_view name) const {
         bool res{};
 
         for_each(
-            [name, &res](const auto &item) {
-                if ( 0 == std::strcmp(item.name(), name) ) {
+            [&res, &name](const auto &item) {
+                if ( item.name() == name ) {
                     res = item.is_bool();
                     return false;
                 }
@@ -871,21 +935,21 @@ struct args {
     }
 
     template<typename T>
-    const typename T::value_type& get(const T &) const {
-        static_assert(has_type<T>::value, "");
+    const typename T::value_type& get(const T &v) const {
+        static_assert(contains(v), "");
 
-        return std::get<T>(m_kwords).m_val.value();
+        return std::get<T>(m_kwords).m_value.value();
     }
     template<typename T>
     typename T::value_type& get(const T &) {
-        static_assert(has_type<T>::value, "");
+        static_assert(contains<T>(), "");
 
-        return std::get<T>(m_kwords).m_val.value();
+        return std::get<T>(m_kwords).m_value.value();
     }
     template<typename T, typename U>
     typename T::value_type get(const T &k, U &&v) const {
         if ( is_set(k) ) {
-            return std::get<T>(m_kwords).m_val.value();
+            return std::get<T>(m_kwords).m_value.value();
         }
 
         return std::forward<U>(v);
@@ -939,86 +1003,87 @@ private:
         ,args<TArgs...> &set
     );
 
-    const option_base* get_by_name(const char *name) const {
-        const option_base *opt = nullptr;
+    bool get_is_set(const std::string_view name) const {
+        bool res = false;
         for_each(
              m_kwords
-            ,[&opt, name](const auto &item) {
-                if ( std::strcmp(item.name(), name) == 0 ) {
-                    opt = std::addressof(item);
+            ,[&res, &name](const auto &item) {
+                if ( item.name() == name ) {
+                    res = item.is_set();
                 }
-                return opt == nullptr;
+                return res == false;
             }
             ,false
         );
 
-        return opt;
+        return res;
     }
 
-    const char* check_for_unexpected(const char *optname) const {
-        const char *ptr = nullptr;
+    std::string_view
+    check_for_unexpected(const std::string_view optname) const {
+        std::string_view res;
         for_each(
              m_kwords
-            ,[&ptr, optname](const auto &item) {
-                if ( std::strcmp(item.name(), optname) == 0 ) {
-                    ptr = item.name();
+            ,[&res, optname](const auto &item) {
+                if ( item.name() == optname ) {
+                    res = optname;
                 }
-                return ptr == nullptr;
+                return res.empty();
             }
             ,false
         );
 
-        return ptr ? nullptr : optname;
+        return res.empty() ? optname : std::string_view{};
     }
-    const char* check_for_required() const {
-        const char *name = nullptr;
+    std::string_view check_for_required() const {
+        std::string_view res;
         for_each(
              m_kwords
-            ,[&name](const auto &item){
+            ,[&res](const auto &item){
                 if ( item.is_required() && !item.is_set() ) {
-                    name = item.name();
+                    res = item.name();
                 }
-                return name == nullptr;
+                return res.empty();
              }
             ,false
         );
 
-        return name;
+        return res;
     }
 
     using cond_ret_type = std::pair<
-         const char *
-        ,std::vector<const char *>
+         std::string_view
+        ,std::vector<std::string_view>
     >;
     cond_ret_type check_for_cond_and() const {
         return check_for_conditional(
             [](const auto &item) {
                 return item.is_set()
                     ? item.and_list()
-                    : std::vector<const char *>{}
+                    : std::vector<std::string_view>{}
                 ;
             }
-            ,[this](const auto &list) -> std::vector<const char *> {
-                std::vector<const char *> ret;
-                for ( const char *it: list ) {
-                    const auto *opt = get_by_name(it);
-                    if ( opt && !opt->is_set() ) {
-                        ret.push_back(it);
+            ,[this](const auto &list) {
+                std::vector<std::string_view> res;
+                for ( const auto &it: list ) {
+                    bool is_set = get_is_set(it);
+                    if ( !is_set ) {
+                        res.push_back(it);
                     }
                 }
-                return ret;
+                return res;
             }
         );
     }
     cond_ret_type check_for_cond_or() const {
         return check_for_conditional(
              [](const auto &item) { return item.or_list(); }
-            ,[this](const auto &list) -> std::vector<const char *> {
+            ,[this](const auto &list) {
                 auto num = 0u;
-                std::vector<const char *> ret;
-                for ( const char *it: list ) {
-                    const auto *opt = get_by_name(it);
-                    if ( opt && opt->is_set() ) {
+                std::vector<std::string_view> ret;
+                for ( const auto &it: list ) {
+                    bool is_set = get_is_set(it);
+                    if ( is_set ) {
                         ++num;
                         ret.push_back(it);
                     }
@@ -1037,14 +1102,14 @@ private:
              [](const auto &item) {
                 return item.is_set()
                     ? item.not_list()
-                    : std::vector<const char *>{}
+                    : std::vector<std::string_view>{}
                 ;
             }
-            ,[this](const auto &list) -> std::vector<const char *> {
-                std::vector<const char *> ret;
-                for ( const char *it: list ) {
-                    const auto *opt = get_by_name(it);
-                    if ( opt && opt->is_set() ) {
+            ,[this](const auto &list) {
+                std::vector<std::string_view> ret;
+                for ( const auto &it: list ) {
+                    bool is_set = get_is_set(it);
+                    if ( is_set ) {
                         ret.push_back(it);
                     }
                 }
@@ -1075,18 +1140,8 @@ private:
     void reset_impl() {}
     template<typename T0, typename ...Types>
     void reset_impl(const T0 &, const Types & ...types) {
-        std::get<T0>(m_kwords).m_val = typename T0::value_type{};
+        std::get<T0>(m_kwords).m_value = typename T0::value_type{};
         reset_impl(types...);
-    }
-
-    static const char* check_for_required_impl() { return nullptr; }
-    template<typename T0, typename ...Types>
-    static const char* check_for_required_impl(const T0 &, const Types & ...types) {
-        if ( !has_type<T0>::value ) {
-            return T0::__name();
-        }
-
-        return check_for_required_impl(types...);
     }
 
     // const
@@ -1149,7 +1204,7 @@ void parse_kv_list(
 {
     for ( ; beg != end; ++beg ) {
         if ( pref ) {
-            if ( std::strncmp(*beg, pref, pref_len) != 0 ) {
+            if ( std::string_view{pref, pref_len} != *beg ) {
                 continue;
             }
         }
@@ -1166,8 +1221,9 @@ void parse_kv_list(
             line[pos] = '\0';
         }
 
-        const char *key = line.c_str();
-        if ( const char *unexpected = set.check_for_unexpected(key) ) {
+        std::string_view key = line.c_str();
+        auto unexpected = set.check_for_unexpected(key);
+        if ( !unexpected.empty() ) {
             std::string msg = "there is an extra \"";
             msg += (pref ? pref : "");
             msg += unexpected;
@@ -1188,7 +1244,7 @@ void parse_kv_list(
             std::size_t len = (line.length() - pos) - 1;
             set.for_each(
                 [pref, key, val, len, &msg](auto &item) {
-                    if ( std::strcmp(item.name(), key) == 0 ) {
+                    if ( item.name().compare(key) == 0 ) {
                         bool has_validator = item.has_validator();
                         bool has_converter = item.has_converter();
                         if ( has_validator ) {
@@ -1251,7 +1307,7 @@ void parse_kv_list(
 
             set.for_each(
                 [key](auto &item) {
-                    if ( std::strcmp(item.name(), key) == 0 ) {
+                    if ( item.name().compare(key) == 0 ) {
                         static const char _true[] = "true";
                         item.from_string(_true, sizeof(_true)-1);
                         return false;
@@ -1261,13 +1317,16 @@ void parse_kv_list(
                 ,false
             );
 
-            if ( std::strcmp(key, "help") == 0 || std::strcmp(key, "version") == 0 ) {
+            static const std::string_view help_key{"help"};
+            static const std::string_view version_key{"version"};
+            if ( key == help_key || key == version_key ) {
                 return;
             }
         }
     }
 
-    if ( const char *required = set.check_for_required() ) {
+    auto required = set.check_for_required();
+    if ( !required.empty() ) {
         std::string msg = "there is no required \"";
         msg += (pref ? pref : "");
         msg += required;
@@ -1402,11 +1461,11 @@ auto parse_args(std::string *emsg, int argc, char* const* argv, const KWords &kw
 template<typename ...Args>
 std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_only = true) {
     set.for_each(
-        [&os](auto &item) {
+        [&os](const auto &item) {
             os << "# " << item.description() << std::endl;
             os << item.name() << "=";
-            if ( item.m_val ) {
-                details::optional_bool_printer::print(os, item.m_val);
+            if ( item.m_value ) {
+                details::optional_bool_printer::print(os, item.m_value);
             }
             os << std::endl;
 
@@ -1493,14 +1552,21 @@ std::string to_string(const args<Args...> &set, bool inited_only = true) {
 
 template<typename ...Args>
 std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...> &set) {
-    const char *p = std::strrchr(argv0, '/');
+#ifdef _WIN32
+    static const char separator = '\\';
+#else
+    static const char separator = '/';
+#endif
+
+    auto pos = std::string_view{argv0}.rfind(separator);
+    const char *p = (pos != std::string_view::npos ? argv0+pos : argv0);
     os
     << (p ? p+1 : "program") << ":" << std::endl;
 
     std::size_t max_len = 0;
     set.for_each(
         [&max_len](const auto &item) {
-            std::size_t len = std::strlen(item.name());
+            std::size_t len = item.name().size();
             max_len = (len > max_len) ? len : max_len;
 
             return true;
@@ -1511,13 +1577,14 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...>
     set.for_each(
         [&os, max_len](const auto &item) {
             static const char ident[] = "                                        ";
-            const char *name = item.name();
-            std::size_t len = std::strlen(name);
+            std::string_view name = item.name();
+            std::size_t len = name.size();
             os << "--" << name << "=*";
             os.write(ident, static_cast<std::streamsize>(max_len - len));
-            os << ": " << item.description()
-            << " ("
-                << item.type()
+            os
+            << ": \"" << item.description()
+            << "\" ("
+                << item.type_name()
                 << ", "
                 << (item.is_required() ? "required" : "optional")
             ;
@@ -1565,8 +1632,18 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
 
 /*************************************************************************************************/
 
-} // ns cmdargs
+#define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
+    const ::cmdargs::option<struct OPTION_NAME, OPTION_TYPE> \
+OPTION_NAME{#OPTION_TYPE, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
+
+#define CMDARGS_OPTION_ADD_HELP() \
+    CMDARGS_OPTION_ADD(help, bool, "show help message", optional)
+
+#define CMDARGS_OPTION_ADD_VERSION() \
+    CMDARGS_OPTION_ADD(version, bool, "show version message", optional)
 
 /*************************************************************************************************/
+
+} // ns cmdargs
 
 #endif // __CMDARGS__CMDARGS_HPP

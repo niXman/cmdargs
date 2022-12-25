@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2023 niXman (github dot nixman at pm dot me)
 // This file is part of CmdArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,13 +28,138 @@
 
 #include <iostream>
 
+template<typename T>
+void foo() { std::cout << __PRETTY_FUNCTION__ << std::endl; }
+
 /*************************************************************************************************/
 
 bool has_substring(const std::string &str, const char *substr) {
-    return std::strstr(str.data(), substr) != nullptr;
+    return str.find(substr) != std::string::npos;
 }
 
 /*************************************************************************************************/
+
+namespace test_templates {
+
+using namespace cmdargs::details;
+
+template<typename T>
+constexpr bool check_and() {
+    return relation_pred_and<char, T>::value;
+}
+
+template<typename T>
+constexpr bool check_or() {
+    return relation_pred_or<char, T>::value;
+}
+
+template<typename T>
+constexpr bool check_not() {
+    return relation_pred_not<char, T>::value;
+}
+
+template<typename T>
+constexpr bool is_relation() {
+    return is_relation_type<T>::value;
+}
+
+template<typename ...Types>
+constexpr bool contains_and(const std::tuple<Types...> &) {
+    return contains<relation_pred_and, char, Types...>::value;
+}
+
+template<typename ...Types>
+constexpr bool contains_or(const std::tuple<Types...> &) {
+    return contains<relation_pred_or, char, Types...>::value;
+}
+
+template<typename ...Types>
+constexpr bool contains_not(const std::tuple<Types...> &) {
+    return contains<relation_pred_not, char, Types...>::value;
+}
+
+template<typename ...Types>
+constexpr bool has_relation_and(const std::tuple<Types...> &) {
+    using list_type = typename get_relation_list<relation_pred_and, Types...>::type;
+    return std::is_same<list_type, relations_list<e_relation_type::AND>>::value;
+}
+
+template<typename ...Types>
+constexpr bool has_relation_or(const std::tuple<Types...> &) {
+    using list_type = typename get_relation_list<relation_pred_or, Types...>::type;
+    return std::is_same<list_type, relations_list<e_relation_type::OR>>::value;
+}
+
+template<typename ...Types>
+constexpr bool has_relation_not(const std::tuple<Types...> &) {
+    using list_type = typename get_relation_list<relation_pred_not, Types...>::type;
+    return std::is_same<list_type, relations_list<e_relation_type::NOT>>::value;
+}
+
+static void test_templates() {
+    static_assert(true == check_and<relations_list<e_relation_type::AND>>());
+    static_assert(true == check_or<relations_list<e_relation_type::OR>>());
+    static_assert(true == check_not<relations_list<e_relation_type::NOT>>());
+    static_assert(false == check_and<int>());
+
+    static_assert(true == is_relation<relations_list<e_relation_type::AND>>());
+    static_assert(true == is_relation<relations_list<e_relation_type::OR>>());
+    static_assert(true == is_relation<relations_list<e_relation_type::NOT>>());
+    static_assert(false == is_relation<int>());
+
+    constexpr auto tuple = std::make_tuple(
+         relations_list<e_relation_type::AND>{}
+        ,relations_list<e_relation_type::OR>{}
+        ,relations_list<e_relation_type::NOT>{}
+    );
+    static_assert(true == contains_and(tuple));
+    static_assert(true == contains_or(tuple));
+    static_assert(true == contains_not(tuple));
+
+    constexpr auto tuple2 = std::make_tuple(
+         int{}
+        ,char{}
+        ,float{}
+    );
+    static_assert(false == contains_and(tuple2));
+    static_assert(false == contains_or(tuple2));
+    static_assert(false == contains_not(tuple2));
+
+    constexpr auto tuple3 = std::make_tuple(
+         relations_list<e_relation_type::AND>{}
+        ,char{}
+        ,float{}
+    );
+    static_assert(true  == contains_and(tuple3));
+    static_assert(false == contains_or(tuple3));
+    static_assert(false == contains_not(tuple3));
+
+    static_assert(true  == has_relation_and(tuple3));
+
+    constexpr auto tuple4 = std::make_tuple(
+         int{}
+        ,relations_list<e_relation_type::OR>{}
+        ,float{}
+    );
+    static_assert(false == contains_and(tuple4));
+    static_assert(true  == contains_or(tuple4));
+    static_assert(false == contains_not(tuple4));
+
+    static_assert(true  == has_relation_or(tuple4));
+
+    constexpr auto tuple5 = std::make_tuple(
+         int{}
+        ,char{}
+        ,relations_list<e_relation_type::NOT>{}
+    );
+    static_assert(false == contains_and(tuple5));
+    static_assert(false == contains_or(tuple5));
+    static_assert(true  == contains_not(tuple5));
+
+    static_assert(true  == has_relation_not(tuple5));
+}
+
+} // ns test_templates
 
 static void test_decl_00() {
     struct: cmdargs::kwords_group {
@@ -193,9 +318,9 @@ static void test_bool_00() {
         );
         assert(emsg.empty());
 
-        static_assert(args.has(kwords.fname) == true);
-        static_assert(args.has(kwords.fsize) == true);
-        static_assert(args.has(kwords.report) == true);
+        static_assert(args.contains(kwords.fname) == true);
+        static_assert(args.contains(kwords.fsize) == true);
+        static_assert(args.contains(kwords.report) == true);
 
         assert(args.is_set(kwords.fname) == true);
         assert(args.get(kwords.fname) == "1.txt");
@@ -227,9 +352,9 @@ static void test_bool_00() {
 
         assert(emsg.empty());
 
-        static_assert(args.has(kwords.fname) == true);
-        static_assert(args.has(kwords.fsize) == true);
-        static_assert(args.has(kwords.report) == true);
+        static_assert(args.contains(kwords.fname) == true);
+        static_assert(args.contains(kwords.fsize) == true);
+        static_assert(args.contains(kwords.report) == true);
 
         assert(args.is_set(kwords.fname) == true);
         assert(args.get(kwords.fname) == "1.txt");
@@ -262,9 +387,9 @@ static void test_bool_00() {
 
         assert(emsg.empty());
 
-        static_assert(args.has(kwords.fname) == true);
-        static_assert(args.has(kwords.fsize) == true);
-        static_assert(args.has(kwords.report) == true);
+        static_assert(args.contains(kwords.fname) == true);
+        static_assert(args.contains(kwords.fsize) == true);
+        static_assert(args.contains(kwords.report) == true);
 
         assert(args.is_set(kwords.fname) == true);
         assert(args.get(kwords.fname) == "1.txt");
@@ -670,9 +795,9 @@ static void test_default_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.netsrc) == true);
-        static_assert(args.has(kwords.filesrc) == true);
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.filesrc) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(emsg.empty());
 
@@ -699,9 +824,9 @@ static void test_default_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.netsrc) == true);
-        static_assert(args.has(kwords.filesrc) == true);
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.filesrc) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(emsg.empty());
 
@@ -716,9 +841,8 @@ static void test_default_00() {
 static void test_validator_00() {
     struct: cmdargs::kwords_group {
         CMDARGS_OPTION_ADD(fmode, std::string, "processing mode"
-            ,validator_([](const char *str, std::size_t len) {
-                std::string s{str, len};
-                return s == "read" || s == "write";
+            ,validator_([](std::string_view str) {
+                return str == "read" || str == "write";
             })
         );
     } const kwords;
@@ -741,7 +865,7 @@ static void test_validator_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(emsg.empty());
 
@@ -765,7 +889,7 @@ static void test_validator_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(emsg.empty());
 
@@ -789,7 +913,7 @@ static void test_validator_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(!emsg.empty());
         assert(emsg == "an invalid value \"wrong\" was received for \"--fmode\" option");
@@ -802,13 +926,11 @@ static void test_converter_00() {
     struct kwords: cmdargs::kwords_group {
         enum e_mode { undefined, read, write };
         CMDARGS_OPTION_ADD(fmode, e_mode, "processing mode"
-            ,converter_([](void *dstptr, const char *str, std::size_t len) -> bool {
-                auto &dst = *static_cast<e_mode *>(dstptr);
-                std::string s{str, len};
-                if ( s == "read" ) {
-                    dst = e_mode::read;
-                } else if ( s == "write" ) {
-                    dst = e_mode::write;
+            ,converter_([](e_mode &mode, std::string_view str) {
+                if ( str == "read" ) {
+                    mode = e_mode::read;
+                } else if ( str == "write" ) {
+                    mode = e_mode::write;
                 } else {
                     return false;
                 }
@@ -836,7 +958,7 @@ static void test_converter_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(emsg.empty());
 
@@ -860,7 +982,7 @@ static void test_converter_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(emsg.empty());
 
@@ -884,7 +1006,7 @@ static void test_converter_00() {
             ,kwords
         );
 
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         assert(!emsg.empty());
         assert(emsg == "can't convert value \"wrong\" for \"--fmode\" option");
@@ -925,11 +1047,12 @@ static void test_to_file_00() {
         cmdargs::to_file(os, args);
 
         static const char *expected =
-R"(# "network source name"
+R"(# network source name
 netsrc=192.168.1.106
-# "processing mode"
+# processing mode
 fmode=read
 )";
+        auto str = os.str();
         assert(os.str() == expected);
     }
     {
@@ -957,11 +1080,12 @@ fmode=read
         cmdargs::to_file(os, args);
 
         static const char *expected =
-R"(# "file source name"
+R"(# file source name
 filesrc=1.txt
-# "processing mode"
+# processing mode
 fmode=read
 )";
+        auto str = os.str();
         assert(os.str() == expected);
     }
 }
@@ -985,9 +1109,9 @@ fmode=read
         std::string emsg;
         auto args = cmdargs::from_file(&emsg, is, kwords);
 
-        static_assert(args.has(kwords.netsrc) == true, "");
-        static_assert(args.has(kwords.filesrc) == true, "");
-        static_assert(args.has(kwords.fmode) == true, "");
+        static_assert(args.contains(kwords.netsrc) == true, "");
+        static_assert(args.contains(kwords.filesrc) == true, "");
+        static_assert(args.contains(kwords.fmode) == true, "");
 
         assert(!emsg.empty());
         assert(emsg == "the \"fmode\" option must be used together with one of \"netsrc\", \"filesrc\"");
@@ -1049,7 +1173,8 @@ R"(test:
 --fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
 )";
 
-        assert(os.str() == expected);
+        auto str = os.str();
+        assert(str == expected);
     }
     {
         #pragma GCC diagnostic push
@@ -1070,8 +1195,8 @@ R"(test:
             ,kwords.filesrc
             ,kwords.fmode
         );
-        static_assert(args.has(kwords.filesrc) == true);
-        static_assert(args.has(kwords.fmode) == true);
+        static_assert(args.contains(kwords.filesrc) == true);
+        static_assert(args.contains(kwords.fmode) == true);
 
         std::ostringstream os;
         cmdargs::show_help(os, "/test", args);
@@ -1089,6 +1214,8 @@ R"(test:
 /*************************************************************************************************/
 
 int main(int, char **) {
+    test_templates::test_templates();
+
     test_decl_00();
     test_decl_01();
     test_decl_02();

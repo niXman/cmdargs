@@ -1,5 +1,5 @@
 # Cmdargs
-Command-line and config files parsing single header-file library
+Command-line and config files parsing single header-file library for C++17
 
 Only long option names is supported
 
