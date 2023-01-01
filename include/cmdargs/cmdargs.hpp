@@ -728,7 +728,7 @@ struct option {
     using value_type = V;
     using optional_type  = details::optional_type<value_type>;
     using validator_type = std::function<bool(const std::string_view str)>;
-    using converter_type = std::function<bool(value_type &dst, std::string_view str)>;
+    using converter_type = std::function<bool(value_type &dst, const std::string_view str)>;
 
     static constexpr auto m_name = details::type_name<ID>();
     const std::string_view m_type_name;
@@ -762,16 +762,9 @@ struct option {
 
     template<typename U>
     option operator= (U &&r) const noexcept {
-        option res{
-             m_description
-            ,m_required
-            ,std::forward<U>(r)
-            ,m_validator
-            ,m_converter
-            ,m_relation_and
-            ,m_relation_or
-            ,m_relation_not
-        };
+        option res{*this};
+        res.m_value = std::forward<U>(r);
+
         return res;
     }
 
@@ -935,8 +928,8 @@ struct args {
     }
 
     template<typename T>
-    const typename T::value_type& get(const T &v) const {
-        static_assert(contains(v), "");
+    const typename T::value_type& get(const T &) const {
+        static_assert(contains<T>(), "");
 
         return std::get<T>(m_kwords).m_value.value();
     }

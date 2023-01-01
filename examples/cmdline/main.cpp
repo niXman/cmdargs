@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021-2022 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2023 niXman (github dot nixman at pm dot me)
 // This file is part of CmdArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,13 +41,11 @@ struct: cmdargs::kwords_group {
     CMDARGS_OPTION_ADD(fname, std::string, "source file name");
     CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
     CMDARGS_OPTION_ADD(fmode, e_mode     , "source file mode", optional
-        ,validator_([](const char *str, std::size_t len){
-            std::string s{str, len};
-            return s == "read" || s == "write";
+        ,validator_([](const std::string_view str){
+            return str == "read" || str == "write";
         })
-        ,converter_([](void *dstptr, const char *str, std::size_t len){
-            auto &dst = *static_cast<e_mode *>(dstptr);
-            dst = (std::strncmp(str, "read", len) == 0 ? e_mode::read : e_mode::write);
+        ,converter_([](e_mode &dst, const std::string_view str){
+            dst = (str == "read" ? e_mode::read : e_mode::write);
             return true;
         })
     );
