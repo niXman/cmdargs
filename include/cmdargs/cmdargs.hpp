@@ -256,7 +256,7 @@ auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 19>) noexcept
 template<typename T>
 auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 20>) noexcept {
     auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, 19);
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19);
 }
 
 template<
@@ -278,7 +278,6 @@ template<
 auto to_tuple(const T &kw) noexcept {
     return to_tuple_impl(kw, S{});
 }
-
 
 /*************************************************************************************************/
 // the alias for std::optional
