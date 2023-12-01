@@ -1196,7 +1196,8 @@ void parse_kv_list(
 {
     for ( ; beg != end; ++beg ) {
         if ( pref ) {
-            if ( std::string_view{pref, pref_len} != *beg ) {
+            std::string_view pref_sv{pref, pref_len};
+            if ( pref_sv.compare(0, pref_len, *beg, pref_len) != 0 ) {
                 continue;
             }
         }
