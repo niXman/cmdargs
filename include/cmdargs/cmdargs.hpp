@@ -722,22 +722,20 @@ struct kwords_group {
 
 template<typename ID, typename V>
 struct option {
-    using type_id = ID;
     using value_type = V;
     using optional_type  = details::optional_type<value_type>;
     using validator_type = std::function<bool(const std::string_view str)>;
     using converter_type = std::function<bool(value_type &dst, const std::string_view str)>;
 
-    static constexpr auto m_name = details::type_name<ID>();
     const std::string_view m_type_name;
     const std::string_view m_description;
     const bool m_required;
-    optional_type m_value;
-    validator_type m_validator;
-    converter_type m_converter;
+    const validator_type m_validator;
+    const converter_type m_converter;
     const std::vector<std::string_view> m_relation_and;
     const std::vector<std::string_view> m_relation_or;
     const std::vector<std::string_view> m_relation_not;
+    optional_type m_value;
 
     option& operator= (const option &) = delete;
     option& operator= (option &&) = delete;
@@ -749,12 +747,12 @@ struct option {
         :m_type_name{type}
         ,m_description{descr}
         ,m_required{!details::contains<std::is_same, kwords_group::optional_t, Args...>::value}
-        ,m_value{}
         ,m_validator{init_visitor<validator_type>(as_tuple)}
         ,m_converter{init_visitor<converter_type>(as_tuple)}
         ,m_relation_and{init_cond_list<details::e_relation_type::AND>(as_tuple)}
         ,m_relation_or{init_cond_list<details::e_relation_type::OR>(as_tuple)}
         ,m_relation_not{init_cond_list<details::e_relation_type::NOT>(as_tuple)}
+        ,m_value{}
     {}
     ~option() noexcept = default;
 
@@ -766,7 +764,10 @@ struct option {
         return res;
     }
 
-    std::string_view name() const noexcept { return m_name; }
+    std::string_view name() const noexcept {
+        static constexpr auto n = details::type_name<ID>();
+        return n ;
+    }
     std::string_view type_name() const noexcept { return m_type_name; }
     std::string_view description() const noexcept { return m_description; }
     bool is_required() const noexcept { return m_required; }
@@ -798,7 +799,7 @@ struct option {
 
     std::ostream& dump(std::ostream &os) const {
         os
-            << "name         : " << m_name << std::endl
+            << "name         : " << name() << std::endl
             << "type         : " << m_type_name << std::endl
             << "description  : " << '"' << m_description << '"' << std::endl
             << "is required  : " << (m_required ? "true" : "false") << std::endl
@@ -1430,10 +1431,10 @@ template<
         >::value
     >::type
 >
-auto parse_args(std::string *emsg, int argc, char* const* argv, Args && ...kwords) {
+auto parse_args(std::string *emsg, int argc, char* const* argv, const Args & ...kwords) {
     char *const *beg = argv+1;
     char *const *end = argv+argc;
-    args<typename std::decay<Args>::type...> set{std::forward<Args>(kwords)...};
+    args<typename std::decay<Args>::type...> set{kwords...};
     parse_kv_list(emsg, "--", 2, beg, end, set);
 
     return set;
@@ -1486,7 +1487,7 @@ std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_on
 }
 
 template<typename ...Args>
-auto from_file(std::string *emsg, std::istream &is, args<Args...> &set) {
+const auto& from_file(std::string *emsg, std::istream &is, args<Args...> &set) {
     std::vector<std::string> lines;
     for ( std::string line; std::getline(is, line); ) {
         details::trim(line);
@@ -1521,17 +1522,19 @@ template<
         >::value
     >::type
 >
-auto from_file(std::string *emsg, std::istream &is, Args && ...kwords) {
-    args<typename std::decay<Args>::type...> set{std::forward<Args>(kwords)...};
+auto from_file(std::string *emsg, std::istream &is, const Args & ...kwords) {
+    args<typename std::decay<Args>::type...> set{kwords...};
+    from_file(emsg, is, set);
 
-    return from_file(emsg, is, set);
+    return set;
 }
 
 template<typename ...Args>
 auto from_file(std::string *emsg, std::istream &is, const std::tuple<Args...> &kwords) {
     args<typename std::decay<Args>::type...> set{std::get<Args>(kwords)...};
+    from_file(emsg, is, set);
 
-    return from_file(emsg, is, set);
+    return set;
 }
 
 template<
