@@ -662,6 +662,28 @@ template<
 struct get_relation_list<Pred> {};
 
 /*************************************************************************************************/
+// default
+
+template<typename T>
+struct default_t {
+    T val;
+};
+
+template<typename Unused, typename T>
+struct is_default_pred: std::false_type
+{};
+
+template<typename Unused, typename T>
+struct is_default_pred<Unused, default_t<T>>
+    :std::true_type
+{};
+
+template<typename ...Types>
+struct contains_default
+    :contains<is_default_pred, char, Types...>
+{};
+
+/*************************************************************************************************/
 
 } // ns details
 
@@ -670,6 +692,11 @@ struct get_relation_list<Pred> {};
 struct kwords_group {
     struct optional_t {};
     static constexpr optional_t optional{};
+
+    template<typename T>
+    static auto default_(T &&v) noexcept {
+        return details::default_t<T>{std::forward<T>(v)};
+    }
 
     template<typename ...Types>
     static auto and_(const Types &...args) noexcept {
@@ -721,7 +748,7 @@ struct kwords_group {
 /*************************************************************************************************/
 
 template<typename ID, typename V>
-struct option {
+struct option final {
     using value_type = V;
     using optional_type  = details::optional_type<value_type>;
     using validator_type = std::function<bool(const std::string_view str)>;
@@ -735,6 +762,7 @@ struct option {
     const std::vector<std::string_view> m_relation_and;
     const std::vector<std::string_view> m_relation_or;
     const std::vector<std::string_view> m_relation_not;
+    const optional_type m_default_value;
     optional_type m_value;
 
     option& operator= (const option &) = delete;
@@ -752,6 +780,7 @@ struct option {
         ,m_relation_and{init_cond_list<details::e_relation_type::AND>(as_tuple)}
         ,m_relation_or{init_cond_list<details::e_relation_type::OR>(as_tuple)}
         ,m_relation_not{init_cond_list<details::e_relation_type::NOT>(as_tuple)}
+        ,m_default_value{get_default_value(as_tuple)}
         ,m_value{}
     {}
     ~option() noexcept = default;
@@ -770,6 +799,7 @@ struct option {
     }
     std::string_view type_name() const noexcept { return m_type_name; }
     std::string_view description() const noexcept { return m_description; }
+    bool has_default() const noexcept { return m_default_value.has_value(); }
     bool is_required() const noexcept { return m_required; }
     bool is_optional() const noexcept { return !is_required(); }
     bool is_set() const noexcept { return m_value.has_value(); }
@@ -868,12 +898,21 @@ private:
 
         return {};
     }
+    template<typename ...Types>
+    static optional_type get_default_value(const std::tuple<Types...> &tuple) noexcept {
+        if constexpr ( details::contains_default<Types...>::value ) {
+            auto def = std::get<details::default_t<value_type>>(tuple);
+            return {std::move(def.val)};
+        }
+
+        return {};
+    }
 };
 
 /*************************************************************************************************/
 
 template<typename ...Args>
-struct args {
+struct args final {
 private:
     using container_type = std::tuple<typename std::decay<Args>::type...>;
     static_assert(
@@ -908,6 +947,13 @@ public:
         return std::get<T>(m_kwords).is_set();
     }
 
+    template<typename T>
+    bool has_default(const T &) const {
+        static_assert(contains<T>(), "");
+
+        return std::get<T>(m_kwords).has_default();
+    }
+
     bool is_valid_name(const char *name) const {
         return check_for_unexpected(name) == nullptr;
     }
@@ -929,24 +975,23 @@ public:
     }
 
     template<typename T>
-    const typename T::value_type& get(const T &) const {
+    const typename T::value_type& get(const T &k) const {
         static_assert(contains<T>(), "");
 
-        return std::get<T>(m_kwords).m_value.value();
-    }
-    template<typename T>
-    typename T::value_type& get(const T &) {
-        static_assert(contains<T>(), "");
+        const auto &val = std::get<T>(m_kwords);
+        if ( is_set(k) ) {
+            return val.m_value.value();
+        }
 
-        return std::get<T>(m_kwords).m_value.value();
+        return val.m_default_value.value();
     }
-    template<typename T, typename U>
-    typename T::value_type get(const T &k, U &&v) const {
+    template<typename T, typename Default>
+    typename T::value_type get(const T &k, Default &&def) const {
         if ( is_set(k) ) {
             return std::get<T>(m_kwords).m_value.value();
         }
 
-        return std::forward<U>(v);
+        return std::forward<Default>(def);
     }
 
     std::ostream& dump(std::ostream &os, bool inited_only = false) const {

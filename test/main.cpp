@@ -1016,6 +1016,51 @@ static void test_converter_00() {
 
 /*************************************************************************************************/
 
+static void test_default_value_v2() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc), default_(std::string{"127.0.0.1"}));
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc), default_(std::string{"data.txt"}));
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+    } const kwords;
+
+    {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--netsrc=192.168.1.106"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        const auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        assert(emsg.empty());
+
+        assert(args.is_set(kwords.netsrc) == true);
+        assert(args.has_default(kwords.netsrc) == true);
+        assert(args.get(kwords.netsrc) == "192.168.1.106");
+
+        assert(args.is_set(kwords.filesrc) == false);
+        assert(args.has_default(kwords.filesrc) == true);
+        assert(args.get(kwords.filesrc) == "data.txt");
+
+        assert(args.is_set(kwords.fmode) == true);
+        assert(args.has_default(kwords.fmode) == false);
+        assert(args.get(kwords.fmode) == "read");
+    }
+
+}
+
+/*************************************************************************************************/
+
 static void test_to_file_00() {
     struct: cmdargs::kwords_group {
         CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
@@ -1237,6 +1282,8 @@ int main(int, char **) {
     test_validator_00();
 
     test_converter_00();
+
+    test_default_value_v2();
 
     test_to_file_00();
     test_from_file_00();
