@@ -43,7 +43,6 @@
 #include <optional>
 #include <utility>
 
-#include <cassert>
 #include <cinttypes>
 
 /*************************************************************************************************/
@@ -874,6 +873,7 @@ private:
 
 template<typename ...Args>
 struct args {
+private:
     using container_type = std::tuple<typename std::decay<Args>::type...>;
     static_assert(
          std::tuple_size<container_type>::value
@@ -883,6 +883,7 @@ struct args {
 
     container_type m_kwords;
 
+public:
     template<typename ...Types>
     explicit args(const Types &...types)
         :m_kwords{types...}
@@ -947,6 +948,23 @@ struct args {
         return std::forward<U>(v);
     }
 
+    std::ostream& dump(std::ostream &os, bool inited_only = false) const {
+        to_file(os, *this, inited_only);
+        return os;
+    }
+    friend std::ostream& operator<< (std::ostream &os, const args &set) {
+        return set.dump(os);
+    }
+
+    // for debug only
+    void show_this(std::ostream &os) const {
+        for_each(
+            [&os](const auto &item)
+            { os << "  " << item.name() << ": this="; item.show_this(os) << std::endl; }
+        );
+    }
+
+private:
     void reset() {
         reset(m_kwords);
     }
@@ -968,23 +986,6 @@ struct args {
         for_each(m_kwords, std::forward<F>(f), inited_only);
     }
 
-    std::ostream& dump(std::ostream &os, bool inited_only = false) const {
-        to_file(os, *this, inited_only);
-        return os;
-    }
-    friend std::ostream& operator<< (std::ostream &os, const args &set) {
-        return set.dump(os);
-    }
-
-    // for debug only
-    void show_this(std::ostream &os) const {
-        for_each(
-            [&os](const auto &item)
-            { os << "  " << item.name() << ": this="; item.show_this(os) << std::endl; }
-        );
-    }
-
-private:
     template<typename Iter, typename ...TArgs>
     friend void parse_kv_list(
          std::string *emsg
@@ -993,6 +994,20 @@ private:
         ,Iter beg
         ,Iter end
         ,args<TArgs...> &set
+    );
+
+    template<typename ...TArgs>
+    friend std::ostream& to_file(
+         std::ostream &os
+        ,const args<TArgs...> &set
+        ,bool inited_only
+    );
+
+    template<typename ...TArgs>
+    friend std::ostream& show_help(
+         std::ostream &os
+        ,const char *argv0
+        ,const args<TArgs...> &set
     );
 
     bool get_is_set(const std::string_view name) const {

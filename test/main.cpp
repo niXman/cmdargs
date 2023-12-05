@@ -27,6 +27,7 @@
 #include <cmdargs/cmdargs.hpp>
 
 #include <iostream>
+#include <cassert>
 
 template<typename T>
 void foo() { std::cout << __PRETTY_FUNCTION__ << std::endl; }
