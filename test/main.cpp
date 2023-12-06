@@ -1201,7 +1201,7 @@ fmode=read
 
 /*************************************************************************************************/
 
-static void test_show_help_00() {
+static void test_show_help_and_version_00() {
     struct: cmdargs::kwords_group {
         CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
         CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
@@ -1255,6 +1255,157 @@ R"(test:
 
         assert(os.str() == expected);
     }
+
+    // help
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_ADD_HELP();
+            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "/cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+            ,"--help"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords.filesrc
+            ,kwords.fmode
+            ,kwords.help
+        );
+        assert(emsg.empty() == true);
+
+        std::ostringstream os;
+        assert(cmdargs::is_help_requested(os, margv[0], kwords.help, args) == true);
+        static const char *expected =
+R"(cmdargs-test:
+--filesrc=*: "file source size" (std::string, optional, not(--netsrc))
+--fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
+--help=*   : "show help message" (bool, optional)
+)";
+        assert(os.str() == expected);
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_ADD_HELP();
+            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "/cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords.filesrc
+            ,kwords.fmode
+            ,kwords.help
+        );
+        assert(emsg.empty() == true);
+
+        std::ostringstream os;
+        assert(cmdargs::is_help_requested(os, margv[0], kwords.help, args) == false);
+    }
+    // version
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_ADD_HELP();
+            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "/cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords.filesrc
+            ,kwords.fmode
+            ,kwords.help
+            ,kwords.version
+        );
+        assert(emsg.empty() == true);
+
+        std::ostringstream os;
+        assert(cmdargs::is_version_requested(os, margv[0], kwords.version, args) == false);
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_ADD_HELP();
+            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "/cmdargs-test"
+            ,"--filesrc=1.txt"
+            ,"--fmode=read"
+            ,"--version"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords.filesrc
+            ,kwords.fmode
+            ,kwords.help
+            ,kwords.version
+        );
+        assert(emsg.empty() == true);
+
+        std::ostringstream os;
+        assert(cmdargs::is_version_requested(os, margv[0], kwords.version, args) == true);
+
+        static const char *expected =
+R"(cmdargs-test: version - 0.0.1
+)";
+        assert(os.str() == expected);
+    }
 }
 
 /*************************************************************************************************/
@@ -1288,7 +1439,7 @@ int main(int, char **) {
     test_to_file_00();
     test_from_file_00();
 
-    test_show_help_00();
+    test_show_help_and_version_00();
 
     return EXIT_SUCCESS;
 }

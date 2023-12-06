@@ -1344,35 +1344,50 @@ void parse_kv_list(
                 return;
             }
         } else {
-            if ( !set.is_bool_type(key) ) {
-                std::string msg = "a value must be provided for \"";
-                msg += (pref ? pref : "");
-                msg += key;
-                msg += "\" option";
-
-                if ( emsg ) {
-                    *emsg = std::move(msg);
-                } else {
-                    throw std::invalid_argument(msg);
-                }
-
-                return;
-            }
-
-            set.for_each(
-                [key](auto &item) {
-                    if ( item.name().compare(key) == 0 ) {
-                        static const char _true[] = "true";
-                        item.from_string(_true, sizeof(_true)-1);
-                        return false;
-                    }
-                    return true;
-                }
-                ,false
-            );
-
             static const std::string_view help_key{"help"};
             static const std::string_view version_key{"version"};
+
+            if ( key != version_key ) {
+                if ( !set.is_bool_type(key) ) {
+                    std::string msg = "a value must be provided for \"";
+                    msg += (pref ? pref : "");
+                    msg += key;
+                    msg += "\" option";
+
+                    if ( emsg ) {
+                        *emsg = std::move(msg);
+                    } else {
+                        throw std::invalid_argument(msg);
+                    }
+
+                    return;
+                }
+
+                set.for_each(
+                    [key](auto &item) {
+                        if ( item.name().compare(key) == 0 ) {
+                            static const char _true[] = "true";
+                            item.from_string(_true, sizeof(_true)-1);
+                            return false;
+                        }
+                        return true;
+                    }
+                    ,false
+                );
+            } else {
+                // version case
+                set.for_each(
+                    [key](auto &item) {
+                        if ( item.name() == version_key ) {
+                            item.m_value = item.m_default_value;
+                            return false;
+                        }
+                        return true;
+                    }
+                    ,false
+                );
+            }
+
             if ( key == help_key || key == version_key ) {
                 return;
             }
@@ -1606,18 +1621,17 @@ std::string to_string(const args<Args...> &set, bool inited_only = true) {
 
 /*************************************************************************************************/
 
+#ifdef _WIN32
+constexpr char path_separator = '\\';
+#else
+constexpr char path_separator = '/';
+#endif // _WIN32
+
 template<typename ...Args>
 std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...> &set) {
-#ifdef _WIN32
-    static const char separator = '\\';
-#else
-    static const char separator = '/';
-#endif
-
-    auto pos = std::string_view{argv0}.rfind(separator);
-    const char *p = (pos != std::string_view::npos ? argv0+pos : argv0);
-    os
-    << (p ? p+1 : "program") << ":" << std::endl;
+    const auto pos = std::string_view{argv0}.rfind(path_separator);
+    const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
+    os << p << ":" << std::endl;
 
     std::size_t max_len = 0;
     set.for_each(
@@ -1690,13 +1704,46 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
 
 #define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
     const ::cmdargs::option<struct OPTION_NAME, OPTION_TYPE> \
-OPTION_NAME{#OPTION_TYPE, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
+        OPTION_NAME{#OPTION_TYPE, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
 #define CMDARGS_OPTION_ADD_HELP() \
-    CMDARGS_OPTION_ADD(help, bool, "show help message", optional)
+    CMDARGS_OPTION_ADD(help, bool, "show help message", ::cmdargs::kwords_group::optional)
 
-#define CMDARGS_OPTION_ADD_VERSION() \
-    CMDARGS_OPTION_ADD(version, bool, "show version message", optional)
+#define CMDARGS_OPTION_ADD_VERSION(str) \
+    CMDARGS_OPTION_ADD(version, std::string, "show version message" \
+        ,::cmdargs::kwords_group::optional \
+        ,::cmdargs::kwords_group::default_<std::string>(str) \
+    )
+
+/*************************************************************************************************/
+
+template<typename HelpT, typename ...Args>
+bool is_help_requested(std::ostream &os, const char *argv0, const HelpT &help, const args<Args...> &set) {
+    if constexpr ( set.template contains<HelpT>() ) {
+        if ( set.is_set(help) ) {
+            show_help(os, argv0, set);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template<typename VersionT, typename ...Args>
+bool is_version_requested(std::ostream &os, const char *argv0, const VersionT &version, const args<Args...> &set) {
+    if constexpr ( set.template contains<VersionT>() ) {
+        if ( set.is_set(version) ) {
+            const auto pos = std::string_view{argv0}.rfind(path_separator);
+            const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
+            os << p << ": version - " << set.get(version) << std::endl;
+
+            return true;
+        }
+    }
+
+    return false;
+}
 
 /*************************************************************************************************/
 
