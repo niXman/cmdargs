@@ -7,6 +7,7 @@ Only long option names is supported
 `Cmdargs` this is an attempt to implement the concept of `if the code is successfully compiled - it works correctly` and `zero boilerplate code`.
 
 # Capabilities
+- default values for options
 - `optional` and `required` options.
 - option relations: `and`, `or`, `not`.
 
