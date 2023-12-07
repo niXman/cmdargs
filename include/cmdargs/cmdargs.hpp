@@ -685,65 +685,9 @@ struct contains_default
 
 /*************************************************************************************************/
 
+struct optional_option_t {};
+
 } // ns details
-
-/*************************************************************************************************/
-
-struct kwords_group {
-    struct optional_t {};
-    static constexpr optional_t optional{};
-
-    template<typename T>
-    static auto default_(T &&v) noexcept {
-        return details::default_t<T>{std::forward<T>(v)};
-    }
-
-    template<typename ...Types>
-    static auto and_(const Types &...args) noexcept {
-        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
-        static_assert(
-            std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
-            ,"duplicates of keywords is detected!"
-        );
-        return details::relations_list<details::e_relation_type::AND, Types...>{args.name()...};
-    }
-    template<typename ...Types>
-    static auto or_(const Types &...args) noexcept {
-        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
-        static_assert(
-            std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
-            ,"duplicates of keywords is detected!"
-        );
-        return details::relations_list<details::e_relation_type::OR, Types...>{args.name()...};
-    }
-    template<typename ...Types>
-    static auto not_(const Types &...args) noexcept {
-        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
-        static_assert(
-            std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
-            ,"duplicates of keywords is detected!"
-        );
-        return details::relations_list<details::e_relation_type::NOT, Types...>{args.name()...};
-    }
-
-    template<typename F>
-    static auto validator_(F &&f) noexcept {
-        static_assert(details::is_callable<F>::value);
-        using signature = typename details::callable_traits<F>::signature;
-        static_assert(std::is_same<signature, bool(const std::string_view str)>::value);
-        return std::function<signature>{std::forward<F>(f)};
-    }
-    template<typename F>
-    static auto converter_(F &&f) noexcept {
-        static_assert(details::is_callable<F>::value);
-        static_assert(details::callable_traits<F>::size == 2);
-        using signature = typename details::callable_traits<F>::signature;
-        return std::function<signature>{std::forward<F>(f)};
-    }
-};
 
 /*************************************************************************************************/
 
@@ -774,7 +718,7 @@ struct option final {
     option(const char *type, const char *descr, std::tuple<Args...> as_tuple) noexcept
         :m_type_name{type}
         ,m_description{descr}
-        ,m_required{!details::contains<std::is_same, kwords_group::optional_t, Args...>::value}
+        ,m_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
         ,m_validator{init_visitor<validator_type>(as_tuple)}
         ,m_converter{init_visitor<converter_type>(as_tuple)}
         ,m_relation_and{init_cond_list<details::e_relation_type::AND>(as_tuple)}
@@ -793,8 +737,8 @@ struct option final {
         return res;
     }
 
-    std::string_view name() const noexcept {
-        static constexpr auto n = details::type_name<ID>();
+    constexpr std::string_view name() const noexcept {
+        constexpr auto n = details::type_name<ID>();
         return n ;
     }
     std::string_view type_name() const noexcept { return m_type_name; }
@@ -910,6 +854,72 @@ private:
 };
 
 /*************************************************************************************************/
+// help and version types
+namespace details {
+
+using help_option_type = option<struct help, bool>;
+using version_option_type = option<struct version, std::string>;
+
+} // ns details
+
+/*************************************************************************************************/
+
+struct kwords_group {
+    static constexpr details::optional_option_t optional{};
+
+    template<typename T>
+    static auto default_(T &&v) noexcept {
+        return details::default_t<T>{std::forward<T>(v)};
+    }
+
+    template<typename ...Types>
+    static auto and_(const Types &...args) noexcept {
+        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
+        static_assert(
+            std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
+            ,"duplicates of keywords is detected!"
+        );
+        return details::relations_list<details::e_relation_type::AND, Types...>{args.name()...};
+    }
+    template<typename ...Types>
+    static auto or_(const Types &...args) noexcept {
+        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
+        static_assert(
+            std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
+            ,"duplicates of keywords is detected!"
+        );
+        return details::relations_list<details::e_relation_type::OR, Types...>{args.name()...};
+    }
+    template<typename ...Types>
+    static auto not_(const Types &...args) noexcept {
+        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
+        static_assert(
+            std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
+            ,"duplicates of keywords is detected!"
+        );
+        return details::relations_list<details::e_relation_type::NOT, Types...>{args.name()...};
+    }
+
+    template<typename F>
+    static auto validator_(F &&f) noexcept {
+        static_assert(details::is_callable<F>::value);
+        using signature = typename details::callable_traits<F>::signature;
+        static_assert(std::is_same<signature, bool(const std::string_view str)>::value);
+        return std::function<signature>{std::forward<F>(f)};
+    }
+    template<typename F>
+    static auto converter_(F &&f) noexcept {
+        static_assert(details::is_callable<F>::value);
+        static_assert(details::callable_traits<F>::size == 2);
+        using signature = typename details::callable_traits<F>::signature;
+        return std::function<signature>{std::forward<F>(f)};
+    }
+};
+
+/*************************************************************************************************/
 
 template<typename ...Args>
 struct args final {
@@ -939,6 +949,13 @@ public:
     template<typename T>
     static constexpr bool contains()
     { return details::contains<std::is_same, T, Args...>::value; }
+
+    template<typename T>
+    bool is_set() const {
+        static_assert(contains<T>(), "");
+
+        return std::get<T>(m_kwords).is_set();
+    }
 
     template<typename T>
     bool is_set(const T &) const {
@@ -974,6 +991,17 @@ public:
         return res;
     }
 
+    template<typename T>
+    const typename T::value_type& get() const {
+        static_assert(contains<T>(), "");
+
+        const auto &val = std::get<T>(m_kwords);
+        if ( is_set<T>() ) {
+            return val.m_value.value();
+        }
+
+        return val.m_default_value.value();
+    }
     template<typename T>
     const typename T::value_type& get(const T &k) const {
         static_assert(contains<T>(), "");
@@ -1707,20 +1735,19 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
         OPTION_NAME{#OPTION_TYPE, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
 #define CMDARGS_OPTION_ADD_HELP() \
-    CMDARGS_OPTION_ADD(help, bool, "show help message", ::cmdargs::kwords_group::optional)
+    const ::cmdargs::details::help_option_type help{"bool", "show help message" \
+        , std::make_tuple(optional)};
 
 #define CMDARGS_OPTION_ADD_VERSION(str) \
-    CMDARGS_OPTION_ADD(version, std::string, "show version message" \
-        ,::cmdargs::kwords_group::optional \
-        ,::cmdargs::kwords_group::default_<std::string>(str) \
-    )
+    const ::cmdargs::details::version_option_type version{"std::string", "show version message" \
+        , std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})};
 
 /*************************************************************************************************/
 
-template<typename HelpT, typename ...Args>
-bool is_help_requested(std::ostream &os, const char *argv0, const HelpT &help, const args<Args...> &set) {
-    if constexpr ( set.template contains<HelpT>() ) {
-        if ( set.is_set(help) ) {
+template<typename ...Args>
+bool is_help_requested(std::ostream &os, const char *argv0, const args<Args...> &set) {
+    if constexpr ( set.template contains<details::help_option_type>() ) {
+        if ( set.template is_set<details::help_option_type>() ) {
             show_help(os, argv0, set);
 
             return true;
@@ -1730,19 +1757,26 @@ bool is_help_requested(std::ostream &os, const char *argv0, const HelpT &help, c
     return false;
 }
 
-template<typename VersionT, typename ...Args>
-bool is_version_requested(std::ostream &os, const char *argv0, const VersionT &version, const args<Args...> &set) {
-    if constexpr ( set.template contains<VersionT>() ) {
-        if ( set.is_set(version) ) {
+template<typename ...Args>
+bool is_version_requested(std::ostream &os, const char *argv0, const args<Args...> &set) {
+    if constexpr ( set.template contains<details::version_option_type>() ) {
+        if ( set.template is_set<details::version_option_type>() ) {
             const auto pos = std::string_view{argv0}.rfind(path_separator);
             const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
-            os << p << ": version - " << set.get(version) << std::endl;
+            os << p << ": version - " << set.template get<details::version_option_type>() << std::endl;
 
             return true;
         }
     }
 
     return false;
+}
+
+/*************************************************************************************************/
+
+template<typename ...Args>
+bool is_help_or_version_requested(std::ostream &os, const char *argv0, const args<Args...> &set) {
+    return is_help_requested(os, argv0, set) || is_version_requested(os, argv0, set);
 }
 
 /*************************************************************************************************/
