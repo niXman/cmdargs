@@ -992,7 +992,7 @@ public:
     }
 
     template<typename T>
-    const typename T::value_type& get() const {
+    const auto& get() const {
         static_assert(contains<T>(), "");
 
         const auto &val = std::get<T>(m_kwords);
@@ -1003,7 +1003,7 @@ public:
         return val.m_default_value.value();
     }
     template<typename T>
-    const typename T::value_type& get(const T &k) const {
+    const auto& get(const T &k) const {
         static_assert(contains<T>(), "");
 
         const auto &val = std::get<T>(m_kwords);
@@ -1022,6 +1022,11 @@ public:
         return std::forward<Default>(def);
     }
 
+    template<typename T>
+    const auto& operator[] (const T &k) const { return get(k); }
+
+    const auto& operator() () const { return m_kwords; }
+
     std::ostream& dump(std::ostream &os, bool inited_only = false) const {
         to_file(os, *this, inited_only);
         return os;
@@ -1039,18 +1044,6 @@ public:
     }
 
 private:
-    void reset() {
-        reset(m_kwords);
-    }
-    template<typename ...Types>
-    void reset(const Types & ...t) {
-        reset_impl(t...);
-    }
-    template<typename ...Types>
-    void reset(const std::tuple<Types...> &t) {
-        reset_impl(std::get<Types>(t)...);
-    }
-
     template<typename F>
     void for_each(F &&f, bool inited_only = false) const {
         for_each(m_kwords, std::forward<F>(f), inited_only);
@@ -1218,13 +1211,6 @@ private:
     }
 
 private:
-    void reset_impl() {}
-    template<typename T0, typename ...Types>
-    void reset_impl(const T0 &, const Types & ...types) {
-        std::get<T0>(m_kwords).m_value = typename T0::value_type{};
-        reset_impl(types...);
-    }
-
     // const
     template<std::size_t I = 0, typename Tuple, typename Func>
     static typename std::enable_if_t<I != std::tuple_size<Tuple>::value>
@@ -1762,8 +1748,8 @@ bool is_version_requested(std::ostream &os, const char *argv0, const args<Args..
     if constexpr ( set.template contains<details::version_option_type>() ) {
         if ( set.template is_set<details::version_option_type>() ) {
             const auto pos = std::string_view{argv0}.rfind(path_separator);
-            const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
-            os << p << ": version - " << set.template get<details::version_option_type>() << std::endl;
+            const auto ptr  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
+            os << ptr << ": version - " << set.template get<details::version_option_type>() << std::endl;
 
             return true;
         }
