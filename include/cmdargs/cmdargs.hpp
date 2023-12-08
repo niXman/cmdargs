@@ -855,6 +855,7 @@ private:
 
 /*************************************************************************************************/
 // help and version types
+
 namespace details {
 
 using help_option_type = option<struct help, bool>;
@@ -974,6 +975,7 @@ public:
     bool is_valid_name(const char *name) const {
         return check_for_unexpected(name) == nullptr;
     }
+
     bool is_bool_type(const std::string_view name) const {
         bool res{};
 
@@ -1028,8 +1030,7 @@ public:
     const auto& operator() () const { return m_kwords; }
 
     std::ostream& dump(std::ostream &os, bool inited_only = false) const {
-        to_file(os, *this, inited_only);
-        return os;
+        return to_file(os, *this, inited_only);
     }
     friend std::ostream& operator<< (std::ostream &os, const args &set) {
         return set.dump(os);

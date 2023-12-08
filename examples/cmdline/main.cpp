@@ -68,18 +68,11 @@ int main(int argc, char *const *argv) {
     }
     //args.dump(std::cout, false);
 
-    if ( args.is_set(kwords.help) ) {
-        cmdargs::show_help(std::cout, argv[0], args);
-
-        return EXIT_SUCCESS;
-    }
-    if ( args.is_set(kwords.version) ) {
-        std::cout << "my version 0.0.1" << std::endl;
-
+    if ( cmdargs::is_help_or_version_requested(std::cout, argv[0], args) ) {
         return EXIT_SUCCESS;
     }
 
-    const auto &fname = args.get(kwords.fname);
+    auto fname = args[kwords.fname];
     std::cout << "fname=" << fname << std::endl;
     if ( args.is_set(kwords.fsize) ) {
         std::cout << "fsize=" << args.get(kwords.fsize) << std::endl;

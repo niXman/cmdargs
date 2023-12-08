@@ -324,10 +324,10 @@ static void test_bool_00() {
         static_assert(args.contains(kwords.report) == true);
 
         assert(args.is_set(kwords.fname) == true);
-        assert(args.get(kwords.fname) == "1.txt");
+        assert(args[kwords.fname] == "1.txt");
 
         assert(args.is_set(kwords.fsize) == true);
-        assert(args.get(kwords.fsize) == 1024);
+        assert(args[kwords.fsize] == 1024);
 
         assert(!args.is_set(kwords.report));
     }
@@ -358,13 +358,13 @@ static void test_bool_00() {
         static_assert(args.contains(kwords.report) == true);
 
         assert(args.is_set(kwords.fname) == true);
-        assert(args.get(kwords.fname) == "1.txt");
+        assert(args[kwords.fname] == "1.txt");
 
         assert(args.is_set(kwords.fsize) == true);
-        assert(args.get(kwords.fsize) == 1024);
+        assert(args[kwords.fsize] == 1024);
 
         assert(args.is_set(kwords.report));
-        assert(args.get(kwords.report) == true);
+        assert(args[kwords.report] == true);
     }
     {
         #pragma GCC diagnostic push
@@ -393,13 +393,13 @@ static void test_bool_00() {
         static_assert(args.contains(kwords.report) == true);
 
         assert(args.is_set(kwords.fname) == true);
-        assert(args.get(kwords.fname) == "1.txt");
+        assert(args[kwords.fname] == "1.txt");
 
         assert(args.is_set(kwords.fsize) == true);
-        assert(args.get(kwords.fsize) == 1024);
+        assert(args[kwords.fsize] == 1024);
 
         assert(args.is_set(kwords.report));
-        assert(args.get(kwords.report) == false);
+        assert(args[kwords.report] == false);
     }
 }
 
@@ -802,9 +802,9 @@ static void test_default_00() {
 
         assert(emsg.empty());
 
-        assert(args.get(kwords.fmode) == "read");
+        assert(args[kwords.fmode] == "read");
         assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
-        assert(args.get(kwords.filesrc) == "1.txt");
+        assert(args[kwords.filesrc] == "1.txt");
     }
     {
         #pragma GCC diagnostic push
@@ -831,8 +831,8 @@ static void test_default_00() {
 
         assert(emsg.empty());
 
-        assert(args.get(kwords.fmode) == "read");
-        assert(args.get(kwords.netsrc) == "192.168.1.101");
+        assert(args[kwords.fmode] == "read");
+        assert(args[kwords.netsrc] == "192.168.1.101");
         assert(args.get(kwords.filesrc, "2.txt") == "2.txt");
     }
 }
@@ -870,7 +870,7 @@ static void test_validator_00() {
 
         assert(emsg.empty());
 
-        assert(args.get(kwords.fmode) == "read");
+        assert(args[kwords.fmode] == "read");
     }
     {
         #pragma GCC diagnostic push
@@ -894,7 +894,7 @@ static void test_validator_00() {
 
         assert(emsg.empty());
 
-        assert(args.get(kwords.fmode) == "write");
+        assert(args[kwords.fmode] == "write");
     }
     {
         #pragma GCC diagnostic push
@@ -963,7 +963,7 @@ static void test_converter_00() {
 
         assert(emsg.empty());
 
-        assert(args.get(kwords.fmode) == kwords::read);
+        assert(args[kwords.fmode] == kwords::read);
     }
     {
         #pragma GCC diagnostic push
@@ -987,7 +987,7 @@ static void test_converter_00() {
 
         assert(emsg.empty());
 
-        assert(args.get(kwords.fmode) == kwords::write);
+        assert(args[kwords.fmode] == kwords::write);
     }
     {
         #pragma GCC diagnostic push
@@ -1046,15 +1046,15 @@ static void test_default_value_v2() {
 
         assert(args.is_set(kwords.netsrc) == true);
         assert(args.has_default(kwords.netsrc) == true);
-        assert(args.get(kwords.netsrc) == "192.168.1.106");
+        assert(args[kwords.netsrc] == "192.168.1.106");
 
         assert(args.is_set(kwords.filesrc) == false);
         assert(args.has_default(kwords.filesrc) == true);
-        assert(args.get(kwords.filesrc) == "data.txt");
+        assert(args[kwords.filesrc] == "data.txt");
 
         assert(args.is_set(kwords.fmode) == true);
         assert(args.has_default(kwords.fmode) == false);
-        assert(args.get(kwords.fmode) == "read");
+        assert(args[kwords.fmode] == "read");
     }
 
 }

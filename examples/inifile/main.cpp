@@ -27,6 +27,7 @@
 #include <cmdargs/cmdargs.hpp>
 
 #include <iostream>
+#include <cassert>
 
 /*************************************************************************************************/
 
@@ -51,7 +52,7 @@ bool to_file() {
 
     std::ostringstream os;
 
-    cmdargs::to_file(os, args);
+    os << args;
     auto str = os.str();
     return str == expected;
 }
@@ -65,7 +66,7 @@ bool from_file() {
     assert(error_message.empty());
     static_assert (args.size() == 2, "");
 
-    return args.get(kwords.fname) == "1.txt" && args.get(kwords.fsize) == 1024;
+    return args[kwords.fname] == "1.txt" && args[kwords.fsize] == 1024;
 }
 
 /*************************************************************************************************/
