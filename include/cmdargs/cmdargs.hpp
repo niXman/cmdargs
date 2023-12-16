@@ -153,108 +153,108 @@ template<typename T>
 using to_tuple_size = std::integral_constant<std::size_t, to_tuple_size_impl<T>()-1>;
 
 template<typename T>
-auto to_tuple_impl(T &&, std::integral_constant<std::size_t, 0>) noexcept {
+auto to_tuple_impl(const T &, std::integral_constant<std::size_t, 0>) noexcept {
     return std::make_tuple();
 }
 
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 1>) noexcept {
-    auto&& [p0] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 1>) noexcept {
+    const auto& [p0] = object;
     return std::make_tuple(p0);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 2>) noexcept {
-    auto&& [p0, p1] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 2>) noexcept {
+    const auto& [p0, p1] = object;
     return std::make_tuple(p0, p1);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 3>) noexcept {
-    auto&& [p0, p1, p2] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 3>) noexcept {
+    const auto& [p0, p1, p2] = object;
     return std::make_tuple(p0, p1, p2);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 4>) noexcept {
-    auto&& [p0, p1, p2, p3] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 4>) noexcept {
+    const auto& [p0, p1, p2, p3] = object;
     return std::make_tuple(p0, p1, p2, p3);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 5>) noexcept {
-    auto&& [p0, p1, p2, p3, p4] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 5>) noexcept {
+    const auto& [p0, p1, p2, p3, p4] = object;
     return std::make_tuple(p0, p1, p2, p3, p4);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 6>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 6>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 7>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 7>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 8>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 8>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 9>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 9>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 10>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 10>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 11>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 11>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 12>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 12>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 13>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 13>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 14>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 14>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 15>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 15>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 16>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 16>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 17>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 17>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 18>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 18>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 19>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 19>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18);
 }
 template<typename T>
-auto to_tuple_impl(T &&object, std::integral_constant<std::size_t, 20>) noexcept {
-    auto&& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = object;
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 20>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19);
 }
 
@@ -265,7 +265,7 @@ template<
     ,typename = struct required_value
     ,std::size_t N
 >
-auto to_tuple_impl(T &&, std::integral_constant<std::size_t, N>) noexcept {
+auto to_tuple_impl(const T &, std::integral_constant<std::size_t, N>) noexcept {
     static_assert(N < 21, "Please increase the number of placeholders");
 }
 
@@ -1758,8 +1758,6 @@ bool is_version_requested(std::ostream &os, const char *argv0, const args<Args..
 
     return false;
 }
-
-/*************************************************************************************************/
 
 template<typename ...Args>
 bool is_help_or_version_requested(std::ostream &os, const char *argv0, const args<Args...> &set) {
