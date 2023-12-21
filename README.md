@@ -1,10 +1,10 @@
 # Cmdargs
-Command-line and config files parsing single header-file library for C++17
+Command-line and config files parsing single header-file library for C++17.
 
-Only long option names is supported
+Only long option names is supported.
 
 # The idea
-`Cmdargs` this is an attempt to implement the concept of `if the code is successfully compiled - it works correctly` and `zero boilerplate code`.
+`Cmdargs` this is an attempt to implement the concept of `if the code is successfully compiled - it works correctly` and `no room for error` and `zero boilerplate code`.
 
 # Capabilities
 - default values for options
