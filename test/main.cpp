@@ -1480,7 +1480,7 @@ R"(cmdargs-test:
 --filesrc=*: "file source size" (std::string, optional, not(--netsrc))
 --fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
 --help=*   : "show help message" (bool, optional)
---version=*: "show version message" (std::string, optional)
+--version=*: "show version message" (std::string, optional, default="0.0.1")
 )";
         assert(os.str() == expected);
     }

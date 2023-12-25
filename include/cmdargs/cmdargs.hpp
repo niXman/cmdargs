@@ -502,14 +502,6 @@ struct is_callable<
 >: std::true_type
 {};
 
-struct optional_bool_printer {
-    static void print(std::ostream &os, const optional_type<bool> &v)
-    { os << (v.value() ? "true" : "false"); }
-    template<typename T>
-    static void print(std::ostream &os, const optional_type<T> &v)
-    { os << v.value(); }
-};
-
 /*************************************************************************************************/
 // callable traits
 
@@ -694,6 +686,7 @@ struct optional_option_t {};
 template<typename ID, typename V>
 struct option final {
     using value_type = V;
+private:
     using optional_type  = details::optional_type<value_type>;
     using validator_type = std::function<bool(const std::string_view str)>;
     using converter_type = std::function<bool(value_type &dst, const std::string_view str)>;
@@ -709,13 +702,14 @@ struct option final {
     const optional_type m_default_value;
     optional_type m_value;
 
+public:
     option& operator= (const option &) = delete;
     option& operator= (option &&) = delete;
     option(const option &) = default;
     option(option &&) = default;
 
     template<typename ...Args>
-    option(const char *type, const char *descr, std::tuple<Args...> as_tuple) noexcept
+    option(const char *type, const char *descr, std::tuple<Args...> as_tuple)
         :m_type_name{type}
         ,m_description{descr}
         ,m_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
@@ -744,9 +738,12 @@ struct option final {
     std::string_view type_name() const noexcept { return m_type_name; }
     std::string_view description() const noexcept { return m_description; }
     bool has_default() const noexcept { return m_default_value.has_value(); }
+    const auto& get_default_value() const noexcept { return m_default_value.value(); }
     bool is_required() const noexcept { return m_required; }
     bool is_optional() const noexcept { return !is_required(); }
     bool is_set() const noexcept { return m_value.has_value(); }
+    const auto& get_value() const noexcept { return m_value.value(); }
+    void set_value(value_type v) { m_value = std::move(v); }
     bool is_bool() const noexcept { return std::is_same<value_type, bool>::value; }
 
     const std::vector<std::string_view>& and_list() const noexcept { return m_relation_and; }
@@ -999,10 +996,10 @@ public:
 
         const auto &val = std::get<T>(m_kwords);
         if ( is_set<T>() ) {
-            return val.m_value.value();
+            return val.get_value();
         }
 
-        return val.m_default_value.value();
+        return val.get_default_value();
     }
     template<typename T>
     const auto& get(const T &k) const {
@@ -1010,15 +1007,15 @@ public:
 
         const auto &val = std::get<T>(m_kwords);
         if ( is_set(k) ) {
-            return val.m_value.value();
+            return val.get_value();
         }
 
-        return val.m_default_value.value();
+        return val.get_default_value();
     }
     template<typename T, typename Default>
     typename T::value_type get(const T &k, Default &&def) const {
         if ( is_set(k) ) {
-            return std::get<T>(m_kwords).m_value.value();
+            return std::get<T>(m_kwords).get_value();
         }
 
         return std::forward<Default>(def);
@@ -1394,7 +1391,7 @@ void parse_kv_list(
                 set.for_each(
                     [key](auto &item) {
                         if ( item.name() == version_key ) {
-                            item.m_value = item.m_default_value;
+                            item.set_value(item.get_default_value());
                             return false;
                         }
                         return true;
@@ -1548,8 +1545,13 @@ std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_on
         [&os](const auto &item) {
             os << "# " << item.description() << std::endl;
             os << item.name() << "=";
-            if ( item.m_value ) {
-                details::optional_bool_printer::print(os, item.m_value);
+            if ( item.is_set() ) {
+                using decayed = typename std::decay<decltype(item)>::type;
+                if constexpr ( std::is_same_v<typename decayed::value_type, bool> ) {
+                    os << (item.get_value() ? "true" : "false");
+                } else {
+                    os << item.get_value();
+                }
             }
             os << std::endl;
 
@@ -1673,6 +1675,9 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...>
                 << ", "
                 << (item.is_required() ? "required" : "optional")
             ;
+            if ( item.has_default() ) {
+                os << ", default=\"" << item.get_default_value() << "\"";
+            }
             const auto &and_list = item.and_list();
             if ( !and_list.empty() ) {
                 os << ", and(" << details::cat_vector("--", and_list) << ")";
