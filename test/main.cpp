@@ -1799,6 +1799,43 @@ static void test_predefined_converters() {
 
 /*************************************************************************************************/
 
+struct kwords: cmdargs::kwords_group {
+    CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+    CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
+    CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+} const kwords;
+
+static void test_as_tuple() {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+    char * const margv[] = {
+        "cmdargs-test"
+        ,"--netsrc=192.168.1.106"
+        ,"--fmode=read"
+    };
+#pragma GCC diagnostic pop
+
+    std::string emsg;
+    const auto [netsrc, filesrc, fmode] = cmdargs::parse_args(
+         &emsg
+        ,std::size(margv)
+        ,margv
+        ,kwords
+    ).values();
+
+    assert(emsg.empty());
+
+    assert(!filesrc);
+
+    assert(netsrc);
+    assert(netsrc.value() == "192.168.1.106");
+
+    assert(fmode);
+    assert(fmode.value() == "read");
+}
+
+/*************************************************************************************************/
+
 int main(int, char **) {
     test_templates::test_templates();
 
@@ -1831,6 +1868,8 @@ int main(int, char **) {
     test_show_help_and_version_00();
 
     test_predefined_converters();
+
+    test_as_tuple();
 
     return EXIT_SUCCESS;
 }

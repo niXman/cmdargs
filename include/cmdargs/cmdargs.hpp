@@ -690,8 +690,14 @@ struct optional_option_t {};
 
 /*************************************************************************************************/
 
+template<typename ...Args>
+struct args_pack;
+
 template<typename ID, typename V>
 struct option final {
+    template<typename ...Args>
+    friend struct args_pack;
+
     using value_type = V;
 private:
     using optional_type  = std::optional<value_type>;
@@ -758,7 +764,7 @@ public:
     bool is_bool() const noexcept { return std::is_same<value_type, bool>::value; }
 
     const auto& and_list() const noexcept { return m_relation_and; }
-    const auto& or_list () const noexcept { return m_relation_or; }
+    const auto& or_list () const noexcept { return m_relation_or;  }
     const auto& not_list() const noexcept { return m_relation_not; }
 
     bool uses_custom_validator() const noexcept { return m_uses_custom_validator; }
@@ -1076,7 +1082,7 @@ struct kwords_group {
 template<typename ...Args>
 struct args_pack final {
 private:
-    using container_type = std::tuple<typename std::decay<Args>::type...>;
+    using container_type = std::tuple<Args...>;
     static_assert(
          std::tuple_size<container_type>::value
             == std::tuple_size<details::without_duplicates<std::is_same, container_type>>::value
@@ -1091,10 +1097,13 @@ public:
         :m_kwords{types...}
     {}
 
-    container_type& kwords() { return m_kwords; }
-    const container_type& kwords() const { return m_kwords; }
+    auto values() const {
+        auto res = std::make_tuple(std::get<Args>(m_kwords).m_value...);
+        return res;
+    }
 
     constexpr std::size_t size() const { return sizeof...(Args); }
+
     template<typename T>
     static constexpr bool contains(const T &)
     { return details::contains<std::is_same, T, Args...>::value; }

@@ -39,6 +39,36 @@ int main(int argc, char **argv) {
 }
 ```
 ```cpp
+// using structure bindings
+
+// declaring key-words
+struct: cmdargs::kwords_group {
+    CMDARGS_OPTION_ADD(fname, std::string, "source file name")
+    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
+} const kwords;
+
+int main(int argc, char **argv) {
+    std::string emsg;
+    
+    // 'fname' - std::optional<std::string>
+    // 'fsize' - std::optional<std::size_t>
+    const auto [fname, fsize] = cmdargs::parse_args(&emsg, argc, argv, kwords).values();
+    if ( !emsg.empty() ) {
+        std::cout << "cmdline parse error: " << emsg << std::endl;
+
+        return EXIT_FAILURE;
+    }
+
+    std::cout << "fname: is set=" << static_cast<bool>(fname) << ", v=" << fname.value() << std::endl;
+    if ( fsize ) {
+        std::cout << "fsize: is set=true, v=" << fsize.value() << std::endl;
+    } else {
+        std::cout << "fsize: is set=false, v=<UNINITIALIZED>" << std::endl;
+    }
+}
+```
+
+```cpp
 // using part of the options
 
 // declaring key-words
