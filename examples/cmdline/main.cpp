@@ -50,17 +50,18 @@ struct: cmdargs::kwords_group {
         })
     );
 
-    CMDARGS_OPTION_ADD(retransmit, bool, "retransmit the file over network?", optional, and_(dst_ip, dst_port));
     CMDARGS_OPTION_ADD(dst_ip, std::string, "the destination IP address", optional);
     CMDARGS_OPTION_ADD(dst_port, std::uint16_t, "the destination port number", optional);
+    CMDARGS_OPTION_ADD(retransmit, bool, "retransmit the file over network?", optional, and_(dst_ip, dst_port));
 
     CMDARGS_OPTION_ADD_HELP();
-    CMDARGS_OPTION_ADD_VERSION();
+    CMDARGS_OPTION_ADD_VERSION("0.0.1");
 } const kwords;
 
 int main(int argc, char *const *argv) {
     std::string error_message;
-    const auto args = cmdargs::parse_args(&error_message, argc, argv, kwords);
+    const auto [fname, fsize, fmode, dst_ip, dst_port, retransmit, help_req, version_req]
+        = cmdargs::parse_args(&error_message, argc, argv, kwords).values();
     if ( !error_message.empty() ) {
         std::cerr << "command line parse error: " << error_message << std::endl;
 
@@ -68,15 +69,21 @@ int main(int argc, char *const *argv) {
     }
     //args.dump(std::cout, false);
 
-    if ( cmdargs::is_help_or_version_requested(std::cout, argv[0], args) ) {
+    if ( help_req ) {
+        cmdargs::show_help(std::cout, argv[0], kwords);
+        return EXIT_SUCCESS;
+    }
+    if ( version_req ) {
+        std::cout << "version: " << version_req.value() << std::endl;
         return EXIT_SUCCESS;
     }
 
-    auto fname = args[kwords.fname];
-    std::cout << "fname=" << fname << std::endl;
-    if ( args.is_set(kwords.fsize) ) {
-        std::cout << "fsize=" << args.get(kwords.fsize) << std::endl;
-    }
+    std::cout << "fname=" << fname.value() << std::endl;
+    if ( fsize ) { std::cout << "fsize=" << fsize.value() << std::endl; }
+    if ( fmode ) { std::cout << "fmode=" << fmode.value() << std::endl; }
+    if ( dst_ip ) { std::cout << "dst_ip=" << dst_ip.value() << std::endl; }
+    if ( dst_port ) { std::cout << "dst_port=" << dst_port.value() << std::endl; }
+    if ( retransmit ) { std::cout << "retransmit=" << retransmit.value() << std::endl; }
 
     return EXIT_SUCCESS;
 }
