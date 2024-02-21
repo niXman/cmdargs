@@ -10,6 +10,7 @@ Only long option names is supported.
 - default values for options
 - `optional` and `required` options.
 - option relations: `and`, `or`, `not`.
+- predefined converters for `std::vector`/`std::list`/`std::set`/`std::map`
 
 # Command line example
 
