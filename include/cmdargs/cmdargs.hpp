@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021-2023 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2024 niXman (github dot nixman at pm dot me)
 // This file is part of CmdArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +33,9 @@
 #include <istream>
 #include <sstream>
 #include <vector>
+#include <list>
+#include <set>
+#include <map>
 #include <tuple>
 #include <array>
 #include <string>
@@ -279,22 +282,6 @@ auto to_tuple(const T &kw) noexcept {
 }
 
 /*************************************************************************************************/
-// the alias for std::optional
-
-template<typename T>
-using optional_type = std::optional<T>;
-
-inline std::ostream& operator<< (std::ostream &os, const optional_type<bool> &v) {
-    if ( v ) {
-        os << v.value();
-    } else {
-        os << "<UNINITIALIZED>";
-    }
-
-    return os;
-}
-
-/*************************************************************************************************/
 // string ops
 
 inline void ltrim(std::string &s, const char* t = " \t\n\r") noexcept
@@ -306,10 +293,30 @@ inline void rtrim(std::string &s, const char* t = " \t\n\r") noexcept
 inline void trim(std::string &s, const char* t = " \t\n\r") noexcept
 { rtrim(s, t); ltrim(s, t); }
 
+template<
+     template<typename, typename> typename Sequence
+    ,typename T
+    ,typename A
+>
+inline bool split(Sequence<T, A> &result, std::string_view str, char delim) {
+    std::size_t start = 0;
+
+    for ( auto found = str.find(delim); found != std::string_view::npos; found = str.find(delim, start) ) {
+        result.emplace_back(str.begin() + start, str.begin() + found);
+        start = found + sizeof(delim);
+    }
+
+    if ( start != str.size() )
+        result.emplace_back(str.begin() + start, str.end());
+
+    return !result.empty();
+}
+
 constexpr std::size_t ct_strlen(const char *s) noexcept {
     const char *p = s;
     for ( ; *p; ++p )
         ;
+
     return p - s;
 }
 
@@ -476,11 +483,6 @@ using without_duplicates = typename filter<Pred, std::tuple<>, T>::type;
 /*************************************************************************************************/
 // is callable
 
-template<class T>
-struct type_identity {
-    using type = T;
-};
-
 template<typename F>
 using has_operator_call_t = decltype(&F::operator());
 
@@ -628,6 +630,11 @@ struct contains_not
     :contains<relation_pred_not, char, Types...>
 {};
 
+template<class T>
+struct type_identity {
+    using type = T;
+};
+
 // get by relation
 template<
      template<typename, typename> typename Pred
@@ -687,14 +694,16 @@ template<typename ID, typename V>
 struct option final {
     using value_type = V;
 private:
-    using optional_type  = details::optional_type<value_type>;
-    using validator_type = std::function<bool(const std::string_view str)>;
-    using converter_type = std::function<bool(value_type &dst, const std::string_view str)>;
+    using optional_type  = std::optional<value_type>;
+    using validator_type = std::function<bool(std::string_view str)>;
+    using converter_type = std::function<bool(value_type &dst, std::string_view str)>;
 
     const std::string_view m_type_name;
     const std::string_view m_description;
-    const bool m_required;
+    const bool m_is_required;
+    const bool m_uses_custom_validator;
     const validator_type m_validator;
+    const bool m_uses_custom_converter;
     const converter_type m_converter;
     const std::vector<std::string_view> m_relation_and;
     const std::vector<std::string_view> m_relation_or;
@@ -712,8 +721,10 @@ public:
     option(const char *type, const char *descr, std::tuple<Args...> as_tuple)
         :m_type_name{type}
         ,m_description{descr}
-        ,m_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
+        ,m_is_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
+        ,m_uses_custom_validator{has_visitor<validator_type>(as_tuple)}
         ,m_validator{init_visitor<validator_type>(as_tuple)}
+        ,m_uses_custom_converter{has_visitor<converter_type>(as_tuple)}
         ,m_converter{init_visitor<converter_type>(as_tuple)}
         ,m_relation_and{init_cond_list<details::e_relation_type::AND>(as_tuple)}
         ,m_relation_or{init_cond_list<details::e_relation_type::OR>(as_tuple)}
@@ -731,7 +742,7 @@ public:
         return res;
     }
 
-    constexpr std::string_view name() const noexcept {
+    static constexpr std::string_view name() noexcept {
         constexpr auto n = details::type_name<ID>();
         return n ;
     }
@@ -739,20 +750,20 @@ public:
     std::string_view description() const noexcept { return m_description; }
     bool has_default() const noexcept { return m_default_value.has_value(); }
     const auto& get_default_value() const noexcept { return m_default_value.value(); }
-    bool is_required() const noexcept { return m_required; }
+    bool is_required() const noexcept { return m_is_required; }
     bool is_optional() const noexcept { return !is_required(); }
     bool is_set() const noexcept { return m_value.has_value(); }
     const auto& get_value() const noexcept { return m_value.value(); }
     void set_value(value_type v) { m_value = std::move(v); }
     bool is_bool() const noexcept { return std::is_same<value_type, bool>::value; }
 
-    const std::vector<std::string_view>& and_list() const noexcept { return m_relation_and; }
-    const std::vector<std::string_view>& or_list() const noexcept { return m_relation_or; }
-    const std::vector<std::string_view>& not_list() const noexcept { return m_relation_not; }
+    const auto& and_list() const noexcept { return m_relation_and; }
+    const auto& or_list () const noexcept { return m_relation_or; }
+    const auto& not_list() const noexcept { return m_relation_not; }
 
-    bool has_validator() const noexcept { return static_cast<bool>(m_validator); }
+    bool uses_custom_validator() const noexcept { return m_uses_custom_validator; }
     bool validate(const char *str, std::size_t len) const noexcept { return m_validator({str, len}); }
-    bool has_converter() const noexcept { return static_cast<bool>(m_converter); }
+    bool uses_custom_converter() const noexcept { return m_uses_custom_converter; }
     bool convert(const char *str, std::size_t len) {
         value_type v{};
         if ( m_converter(v, {str, len}) ) {
@@ -762,19 +773,13 @@ public:
         return false;
     }
 
-    void from_string(const char *ptr, std::size_t len) {
-        value_type v{};
-        details::from_string_impl(&v, ptr, len);
-        m_value = std::move(v);
-    }
-
     std::ostream& dump(std::ostream &os) const {
         os
-            << "name         : " << name() << std::endl
-            << "type         : " << m_type_name << std::endl
-            << "description  : " << '"' << m_description << '"' << std::endl
-            << "is required  : " << (m_required ? "true" : "false") << std::endl
-            << "value        : "
+            << "name            : " << name() << std::endl
+            << "type            : " << m_type_name << std::endl
+            << "description     : " << '"' << m_description << '"' << std::endl
+            << "is required     : " << (m_is_required ? "true" : "false") << std::endl
+            << "value           : "
         ;
         if ( m_value.has_value() ) {
             os << m_value.value();
@@ -782,17 +787,17 @@ public:
             os << "<UNINITIALIZED>";
         }
         os  << std::endl
-            << "has validator: " << (m_validator ? "true" : "false") << std::endl
-            << "has converter: " << (m_converter ? "true" : "false") << std::endl
-            << "relation  AND: " << m_relation_and.size();
+            << "custom validator: " << (uses_custom_validator() ? "true" : "false") << std::endl
+            << "custom converter: " << (uses_custom_converter() ? "true" : "false") << std::endl
+            << "relation     AND: " << m_relation_and.size();
         if ( m_relation_and.size() )
         { os << " (" << details::cat_vector("--", m_relation_and) << ")" << std::endl; }
         else { os << std::endl; }
-        os  << "relation   OR: " << m_relation_or.size();
+        os  << "relation      OR: " << m_relation_or.size();
         if ( m_relation_or.size() )
         { os << " (" << details::cat_vector("--", m_relation_or) << ")" << std::endl; }
         else { os << std::endl; }
-        os  << "relation  NOT: " << m_relation_not.size();
+        os  << "relation     NOT: " << m_relation_not.size();
         if ( m_relation_not.size() )
         { os << " (" << details::cat_vector("--", m_relation_not) << ")" << std::endl; }
         else { os << std::endl; }
@@ -801,14 +806,37 @@ public:
     }
 
 private:
+    static bool default_converter(value_type &dst, std::string_view str) {
+        details::from_string_impl(&dst, str.data(), str.length());
+        return true;
+    }
+    static bool default_validator(std::string_view /*str*/) {
+        return true;
+    }
+
     template<typename Req, typename ...Types>
-    Req init_visitor(std::tuple<Types...> &tuple) noexcept {
+    static constexpr bool has_visitor(const std::tuple<Types...> &/*tuple*/) noexcept {
+        return details::contains<std::is_same, Req, Types...>::value;
+    }
+    template<typename Req, typename ...Types>
+    static constexpr typename std::enable_if_t<std::is_same_v<Req, validator_type>, Req>
+    init_visitor(std::tuple<Types...> &tuple) noexcept {
         if constexpr ( details::contains<std::is_same, Req, Types...>::value ) {
-            return std::move(std::get<Req>(tuple));
+            return Req{std::move(std::get<Req>(tuple))};
         } else {
-            return Req{};
+            return Req{default_validator};
         }
     }
+    template<typename Req, typename ...Types>
+    static constexpr typename std::enable_if_t<std::is_same_v<Req, converter_type>, Req>
+    init_visitor(std::tuple<Types...> &tuple) noexcept {
+        if constexpr ( details::contains<std::is_same, Req, Types...>::value ) {
+            return Req{std::move(std::get<Req>(tuple))};
+        } else {
+            return Req{default_converter};
+        }
+    }
+
     template<details::e_relation_type Rel, typename ...Types>
     static std::vector<std::string_view>
     init_cond_list(const std::tuple<Types...> &tuple) noexcept {
@@ -857,6 +885,98 @@ namespace details {
 
 using help_option_type = option<struct help, bool>;
 using version_option_type = option<struct version, std::string>;
+
+} // ns details
+
+/*************************************************************************************************/
+// predefined converters
+
+namespace details {
+
+template<
+     template<typename, typename> class Sequence
+    ,typename T
+    ,typename A
+>
+bool convert_as_sequence(Sequence<T, A> &dst, std::string_view str, char sep) {
+    std::vector<std::string> vec;
+    split(vec, str, sep);
+    for ( const auto &it: vec) {
+        T v{};
+        from_string_impl(&v, it.data(), it.size());
+
+        dst.emplace_back(std::move(v));
+    }
+
+    return true;
+}
+
+// map
+template<
+     template<typename, typename, typename> class Assoc
+    ,typename K
+    ,typename V
+    ,typename A
+>
+bool convert_as_assoc(Assoc<K, V, A> &dst, std::string_view str, char pair_sep, char kv_sep) {
+    std::vector<std::string> vec;
+    convert_as_sequence(vec, str, pair_sep);
+    for ( const auto &it: vec ) {
+        std::vector<std::string> pair;
+        convert_as_sequence(pair, it, kv_sep);
+        if ( pair.size() != 2 )
+            return false;
+
+        K k{};
+        from_string_impl(&k, pair[0].data(), pair[0].size());
+
+        V v{};
+        from_string_impl(&v, pair[1].data(), pair[1].size());
+
+        dst.emplace(std::move(k), std::move(v));
+    }
+
+    return true;
+}
+
+// set
+template<
+     template<typename, typename> class Assoc
+    ,typename K
+    ,typename A
+>
+bool convert_as_assoc(Assoc<K, A> &dst, std::string_view str, char sep) {
+    std::vector<std::string> vec;
+    convert_as_sequence(vec, str, sep);
+    for ( const auto &it: vec ) {
+        K k{};
+        from_string_impl(&k, it.data(), it.size());
+
+        dst.emplace(std::move(k));
+    }
+
+    return true;
+}
+
+template<typename T>
+bool convert_as_vector(std::vector<T> &dst, std::string_view str, char sep) {
+    return convert_as_sequence(dst, str, sep);
+}
+
+template<typename T>
+bool convert_as_list(std::list<T> &dst, std::string_view str, char sep) {
+    return convert_as_sequence(dst, str, sep);
+}
+
+template<typename T>
+bool convert_as_set(std::set<T> &dst, std::string_view str, char sep) {
+    return convert_as_assoc(dst, str, sep);
+}
+
+template<typename K, typename V>
+bool convert_as_map(std::map<K, V> &dst, std::string_view str, char pair_sep, char kv_sep) {
+    return convert_as_assoc(dst, str, pair_sep, kv_sep);
+}
 
 } // ns details
 
@@ -915,12 +1035,46 @@ struct kwords_group {
         using signature = typename details::callable_traits<F>::signature;
         return std::function<signature>{std::forward<F>(f)};
     }
+
+    // predefined converters
+    template<typename T>
+    static auto convert_as_vector(char sep = ',') noexcept {
+        return converter_(
+            [sep](std::vector<T> &dst, std::string_view str){
+                return details::convert_as_vector(dst, str, sep);
+            }
+        );
+    }
+    template<typename T>
+    static auto convert_as_list(char sep = ',') noexcept {
+        return converter_(
+            [sep](std::list<T> &dst, std::string_view str){
+                return details::convert_as_list(dst, str, sep);
+            }
+        );
+    }
+    template<typename T>
+    static auto convert_as_set(char sep = ',') noexcept {
+        return converter_(
+            [sep](std::set<T> &dst, std::string_view str){
+                return details::convert_as_set(dst, str, sep);
+            }
+        );
+    }
+    template<typename K, typename V>
+    static auto convert_as_map(char pair_sep = ',', char kv_sep = '=') noexcept {
+        return converter_(
+            [pair_sep, kv_sep](std::map<K, V> &dst, std::string_view str){
+                return details::convert_as_map(dst, str, pair_sep, kv_sep);
+            }
+        );
+    }
 };
 
 /*************************************************************************************************/
 
 template<typename ...Args>
-struct args final {
+struct args_pack final {
 private:
     using container_type = std::tuple<typename std::decay<Args>::type...>;
     static_assert(
@@ -933,7 +1087,7 @@ private:
 
 public:
     template<typename ...Types>
-    explicit args(const Types &...types)
+    explicit args_pack(const Types &...types)
         :m_kwords{types...}
     {}
 
@@ -1029,7 +1183,7 @@ public:
     std::ostream& dump(std::ostream &os, bool inited_only = false) const {
         return to_file(os, *this, inited_only);
     }
-    friend std::ostream& operator<< (std::ostream &os, const args &set) {
+    friend std::ostream& operator<< (std::ostream &os, const args_pack &set) {
         return set.dump(os);
     }
 
@@ -1058,13 +1212,13 @@ private:
         ,std::size_t pref_len
         ,Iter beg
         ,Iter end
-        ,args<TArgs...> &set
+        ,args_pack<TArgs...> &set
     );
 
     template<typename ...TArgs>
     friend std::ostream& to_file(
          std::ostream &os
-        ,const args<TArgs...> &set
+        ,const args_pack<TArgs...> &set
         ,bool inited_only
     );
 
@@ -1072,7 +1226,7 @@ private:
     friend std::ostream& show_help(
          std::ostream &os
         ,const char *argv0
-        ,const args<TArgs...> &set
+        ,const args_pack<TArgs...> &set
     );
 
     bool get_is_set(const std::string_view name) const {
@@ -1265,7 +1419,7 @@ void parse_kv_list(
     ,std::size_t pref_len
     ,Iter beg
     ,Iter end
-    ,args<Args...> &set)
+    ,args_pack<Args...> &args)
 {
     for ( ; beg != end; ++beg ) {
         if ( pref ) {
@@ -1288,7 +1442,7 @@ void parse_kv_list(
         }
 
         std::string_view key = line.c_str();
-        auto unexpected = set.check_for_unexpected(key);
+        auto unexpected = args.check_for_unexpected(key);
         if ( !unexpected.empty() ) {
             std::string msg = "there is an extra \"";
             msg += (pref ? pref : "");
@@ -1308,36 +1462,28 @@ void parse_kv_list(
             std::string msg;
             const char *val = line.c_str() + pos + 1;
             std::size_t len = (line.length() - pos) - 1;
-            set.for_each(
+            args.for_each(
                 [pref, key, val, len, &msg](auto &item) {
                     if ( item.name().compare(key) == 0 ) {
-                        bool has_validator = item.has_validator();
-                        bool has_converter = item.has_converter();
-                        if ( has_validator ) {
-                            if ( !item.validate(val, len) ) {
-                                msg = "an invalid value \"";
-                                msg += val;
-                                msg += "\" was received for \"";
-                                msg += (pref ? pref : "");
-                                msg += key;
-                                msg += "\" option";
+                        if ( !item.validate(val, len) ) {
+                            msg = "an invalid value \"";
+                            msg += val;
+                            msg += "\" was received for \"";
+                            msg += (pref ? pref : "");
+                            msg += key;
+                            msg += "\" option";
 
-                                return false;
-                            }
+                            return false;
                         }
-                        if ( has_converter ) {
-                            if ( !item.convert(val, len) ) {
-                                msg = "can't convert value \"";
-                                msg += val;
-                                msg += "\" for \"";
-                                msg += (pref ? pref : "");
-                                msg += key;
-                                msg += "\" option";
+                        if ( !item.convert(val, len) ) {
+                            msg = "can't convert value \"";
+                            msg += val;
+                            msg += "\" for \"";
+                            msg += (pref ? pref : "");
+                            msg += key;
+                            msg += "\" option";
 
-                                return false;
-                            }
-                        } else {
-                            item.from_string(val, len);
+                            return false;
                         }
                         return false;
                     }
@@ -1360,7 +1506,7 @@ void parse_kv_list(
             static const std::string_view version_key{"version"};
 
             if ( key != version_key ) {
-                if ( !set.is_bool_type(key) ) {
+                if ( !args.is_bool_type(key) ) {
                     std::string msg = "a value must be provided for \"";
                     msg += (pref ? pref : "");
                     msg += key;
@@ -1375,11 +1521,11 @@ void parse_kv_list(
                     return;
                 }
 
-                set.for_each(
+                args.for_each(
                     [key](auto &item) {
                         if ( item.name().compare(key) == 0 ) {
                             static const char _true[] = "true";
-                            item.from_string(_true, sizeof(_true)-1);
+                            item.convert(_true, sizeof(_true)-1);
                             return false;
                         }
                         return true;
@@ -1388,7 +1534,7 @@ void parse_kv_list(
                 );
             } else {
                 // version case
-                set.for_each(
+                args.for_each(
                     [key](auto &item) {
                         if ( item.name() == version_key ) {
                             item.set_value(item.get_default_value());
@@ -1406,7 +1552,7 @@ void parse_kv_list(
         }
     }
 
-    auto required = set.check_for_required();
+    auto required = args.check_for_required();
     if ( !required.empty() ) {
         std::string msg = "there is no required \"";
         msg += (pref ? pref : "");
@@ -1422,7 +1568,7 @@ void parse_kv_list(
         return;
     }
 
-    auto cond_and = set.check_for_cond_and();
+    auto cond_and = args.check_for_cond_and();
     if ( !cond_and.second.empty() ) {
         std::string names = details::cat_vector(pref, cond_and.second);
         std::string msg = "the \"";
@@ -1441,7 +1587,7 @@ void parse_kv_list(
         return;
     }
 
-    auto cond_or = set.check_for_cond_or();
+    auto cond_or = args.check_for_cond_or();
     if ( !cond_or.second.empty() ) {
         std::string names = details::cat_vector(pref, cond_or.second, true);
         std::string msg = "the \"";
@@ -1462,7 +1608,7 @@ void parse_kv_list(
         return;
     }
 
-    auto cond_not = set.check_for_cond_not();
+    auto cond_not = args.check_for_cond_not();
     if ( !cond_not.second.empty() ) {
         std::string names = details::cat_vector(pref, cond_not.second, true);
         std::string msg = "the \"";
@@ -1484,15 +1630,6 @@ void parse_kv_list(
 
 /*************************************************************************************************/
 
-template<typename ...Args>
-auto make_args(Args && ...args) {
-    cmdargs::args<typename std::decay<Args>::type...> set{std::forward<Args>(args)...};
-
-    return set;
-}
-
-/*************************************************************************************************/
-
 template<
      typename ...Args
     ,typename = typename std::enable_if<
@@ -1506,7 +1643,7 @@ template<
 auto parse_args(std::string *emsg, int argc, char* const* argv, const Args & ...kwords) {
     char *const *beg = argv+1;
     char *const *end = argv+argc;
-    args<typename std::decay<Args>::type...> set{kwords...};
+    args_pack<typename std::decay<Args>::type...> set{kwords...};
     parse_kv_list(emsg, "--", 2, beg, end, set);
 
     return set;
@@ -1516,7 +1653,7 @@ template<typename ...Args>
 auto parse_args(std::string *emsg, int argc, char* const* argv, const std::tuple<Args...> &kwords) {
     char *const *beg = argv+1;
     char *const *end = argv+argc;
-    args<typename std::decay<Args>::type...> set{std::get<Args>(kwords)...};
+    args_pack<typename std::decay<Args>::type...> set{std::get<Args>(kwords)...};
     parse_kv_list(emsg, "--", 2, beg, end, set);
 
     return set;
@@ -1540,8 +1677,8 @@ auto parse_args(std::string *emsg, int argc, char* const* argv, const KWords &kw
 /*************************************************************************************************/
 
 template<typename ...Args>
-std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_only = true) {
-    set.for_each(
+std::ostream& to_file(std::ostream &os, const args_pack<Args...> &args, bool inited_only = true) {
+    args.for_each(
         [&os](const auto &item) {
             os << "# " << item.description() << std::endl;
             os << item.name() << "=";
@@ -1564,7 +1701,7 @@ std::ostream& to_file(std::ostream &os, const args<Args...> &set, bool inited_on
 }
 
 template<typename ...Args>
-const auto& from_file(std::string *emsg, std::istream &is, args<Args...> &set) {
+const auto& from_file(std::string *emsg, std::istream &is, args_pack<Args...> &args) {
     std::vector<std::string> lines;
     for ( std::string line; std::getline(is, line); ) {
         details::trim(line);
@@ -1584,9 +1721,9 @@ const auto& from_file(std::string *emsg, std::istream &is, args<Args...> &set) {
         linesptrs.push_back(it.c_str());
     }
 
-    parse_kv_list(emsg, nullptr, 0, linesptrs.begin(), linesptrs.end(), set);
+    parse_kv_list(emsg, nullptr, 0, linesptrs.begin(), linesptrs.end(), args);
 
-    return set;
+    return args;
 }
 
 template<
@@ -1600,18 +1737,18 @@ template<
     >::type
 >
 auto from_file(std::string *emsg, std::istream &is, const Args & ...kwords) {
-    args<typename std::decay<Args>::type...> set{kwords...};
-    from_file(emsg, is, set);
+    args_pack<typename std::decay<Args>::type...> args{kwords...};
+    from_file(emsg, is, args);
 
-    return set;
+    return args;
 }
 
 template<typename ...Args>
 auto from_file(std::string *emsg, std::istream &is, const std::tuple<Args...> &kwords) {
-    args<typename std::decay<Args>::type...> set{std::get<Args>(kwords)...};
-    from_file(emsg, is, set);
+    args_pack<typename std::decay<Args>::type...> args{std::get<Args>(kwords)...};
+    from_file(emsg, is, args);
 
-    return set;
+    return args;
 }
 
 template<
@@ -1628,10 +1765,10 @@ auto from_file(std::string *emsg, std::istream &is, const KWords &kw) {
 }
 
 template<typename ...Args>
-std::string to_string(const args<Args...> &set, bool inited_only = true) {
+std::string to_string(const args_pack<Args...> &args, bool inited_only = true) {
     std::ostringstream os;
 
-    to_file(os, set, inited_only);
+    to_file(os, args, inited_only);
 
     return os.str();
 }
@@ -1645,13 +1782,13 @@ constexpr char path_separator = '/';
 #endif // _WIN32
 
 template<typename ...Args>
-std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...> &set) {
+std::ostream& show_help(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
     const auto pos = std::string_view{argv0}.rfind(path_separator);
     const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
     os << p << ":" << std::endl;
 
     std::size_t max_len = 0;
-    set.for_each(
+    args.for_each(
         [&max_len](const auto &item) {
             std::size_t len = item.name().size();
             max_len = (len > max_len) ? len : max_len;
@@ -1661,7 +1798,7 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...>
         ,false
     );
 
-    set.for_each(
+    args.for_each(
         [&os, max_len](const auto &item) {
             static const char ident[] = "                                        ";
             std::string_view name = item.name();
@@ -1702,9 +1839,9 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args<Args...>
 
 template<typename ...Args>
 std::ostream& show_help(std::ostream &os, const char *argv0, const std::tuple<Args...> &kwords) {
-    args<typename std::decay<Args>::type...> set{std::get<Args>(kwords)...};
+    args_pack<typename std::decay<Args>::type...> args{std::get<Args>(kwords)...};
 
-    return show_help(os, argv0, set);
+    return show_help(os, argv0, args);
 }
 
 template<
@@ -1737,10 +1874,10 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
 /*************************************************************************************************/
 
 template<typename ...Args>
-bool is_help_requested(std::ostream &os, const char *argv0, const args<Args...> &set) {
-    if constexpr ( set.template contains<details::help_option_type>() ) {
-        if ( set.template is_set<details::help_option_type>() ) {
-            show_help(os, argv0, set);
+bool is_help_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
+    if constexpr ( args.template contains<details::help_option_type>() ) {
+        if ( args.template is_set<details::help_option_type>() ) {
+            show_help(os, argv0, args);
 
             return true;
         }
@@ -1750,12 +1887,12 @@ bool is_help_requested(std::ostream &os, const char *argv0, const args<Args...> 
 }
 
 template<typename ...Args>
-bool is_version_requested(std::ostream &os, const char *argv0, const args<Args...> &set) {
-    if constexpr ( set.template contains<details::version_option_type>() ) {
-        if ( set.template is_set<details::version_option_type>() ) {
+bool is_version_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
+    if constexpr ( args.template contains<details::version_option_type>() ) {
+        if ( args.template is_set<details::version_option_type>() ) {
             const auto pos = std::string_view{argv0}.rfind(path_separator);
             const auto ptr  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
-            os << ptr << ": version - " << set.template get<details::version_option_type>() << std::endl;
+            os << ptr << ": version - " << args.template get<details::version_option_type>() << std::endl;
 
             return true;
         }
@@ -1765,8 +1902,8 @@ bool is_version_requested(std::ostream &os, const char *argv0, const args<Args..
 }
 
 template<typename ...Args>
-bool is_help_or_version_requested(std::ostream &os, const char *argv0, const args<Args...> &set) {
-    return is_help_requested(os, argv0, set) || is_version_requested(os, argv0, set);
+bool is_help_or_version_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
+    return is_help_requested(os, argv0, args) || is_version_requested(os, argv0, args);
 }
 
 /*************************************************************************************************/

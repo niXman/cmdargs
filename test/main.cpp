@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021-2023 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2024 niXman (github dot nixman at pm dot me)
 // This file is part of CmdArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1525,6 +1525,280 @@ R"(cmdargs-test: version - 0.0.1
 
 /*************************************************************************************************/
 
+static void test_predefined_converters() {
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION_ADD(fileslist, std::vector<std::string>, "source files list", optional, not_(netsrc)
+                ,convert_as_vector<std::string>()
+            );
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--fileslist=1.txt,2.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.fileslist) == true);
+        static_assert(args.contains(kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args[kwords.fmode] == "read");
+        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        const auto &fileslist = args[kwords.fileslist];
+        assert(fileslist == (std::vector<std::string>{"1.txt", "2.txt"}));
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION_ADD(fileslist, std::vector<std::size_t>, "source files list", optional, not_(netsrc)
+                ,convert_as_vector<std::size_t>()
+            );
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--fileslist=1,2,3"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.fileslist) == true);
+        static_assert(args.contains(kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args[kwords.fmode] == "read");
+        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        const auto &fileslist = args[kwords.fileslist];
+        assert(fileslist == (std::vector<std::size_t>{1, 2, 3}));
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION_ADD(fileslist, std::list<std::string>, "source files list", optional, not_(netsrc)
+                ,convert_as_list<std::string>()
+            );
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--fileslist=1.txt,2.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.fileslist) == true);
+        static_assert(args.contains(kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args[kwords.fmode] == "read");
+        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        const auto &fileslist = args[kwords.fileslist];
+        assert(fileslist == (std::list<std::string>{"1.txt", "2.txt"}));
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION_ADD(fileslist, std::set<std::string>, "source files list", optional, not_(netsrc)
+                               ,convert_as_set<std::string>()
+                               );
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--fileslist=1.txt,2.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.fileslist) == true);
+        static_assert(args.contains(kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args[kwords.fmode] == "read");
+        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        const auto &fileslist = args[kwords.fileslist];
+        assert(fileslist == (std::set<std::string>{"1.txt", "2.txt"}));
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            using map_type = std::map<std::string, std::string>;
+            CMDARGS_OPTION_ADD(fileslist, map_type, "source files list", optional, not_(netsrc)
+                ,convert_as_map<map_type::key_type, map_type::mapped_type>()
+            );
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--fileslist=1=1.txt,2=2.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.fileslist) == true);
+        static_assert(args.contains(kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args[kwords.fmode] == "read");
+        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        const auto &fileslist = args[kwords.fileslist];
+        assert(fileslist == (std::map<std::string, std::string>{{"1", "1.txt"}, {"2", "2.txt"}}));
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            using map_type = std::map<std::size_t, std::string>;
+            CMDARGS_OPTION_ADD(fileslist, map_type, "source files list", optional, not_(netsrc)
+                ,convert_as_map<map_type::key_type, map_type::mapped_type>()
+            );
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--fileslist=1=1.txt,2=2.txt"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.fileslist) == true);
+        static_assert(args.contains(kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args[kwords.fmode] == "read");
+        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        const auto &fileslist = args[kwords.fileslist];
+        assert(fileslist == (std::map<std::size_t, std::string>{{1, "1.txt"}, {2, "2.txt"}}));
+    }
+    {
+        struct: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            using map_type = std::map<std::size_t, std::size_t>;
+            CMDARGS_OPTION_ADD(fileslist, map_type, "source files list", optional, not_(netsrc)
+                ,convert_as_map<map_type::key_type, map_type::mapped_type>()
+            );
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--fileslist=1=1,2=2"
+            ,"--fmode=read"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,margv
+            ,kwords
+        );
+
+        static_assert(args.contains(kwords.netsrc) == true);
+        static_assert(args.contains(kwords.fileslist) == true);
+        static_assert(args.contains(kwords.fmode) == true);
+
+        assert(emsg.empty());
+
+        assert(args[kwords.fmode] == "read");
+        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        const auto &fileslist = args[kwords.fileslist];
+        assert(fileslist == (std::map<std::size_t, std::size_t>{{1, 1}, {2, 2}}));
+    }
+}
+
+/*************************************************************************************************/
+
 int main(int, char **) {
     test_templates::test_templates();
 
@@ -1555,6 +1829,8 @@ int main(int, char **) {
     test_from_file_00();
 
     test_show_help_and_version_00();
+
+    test_predefined_converters();
 
     return EXIT_SUCCESS;
 }
