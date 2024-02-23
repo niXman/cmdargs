@@ -27,6 +27,35 @@
 #ifndef __CMDARGS__CMDARGS_HPP
 #define __CMDARGS__CMDARGS_HPP
 
+#define __CMDARGS__STRINGIZE_I(x) #x
+#define __CMDARGS__STRINGIZE(x) __CMDARGS__STRINGIZE_I(x)
+
+/*************************************************************************************************/
+
+// CMDARGS_VERSION_HEX >> 24 - is the major version
+// CMDARGS_VERSION_HEX >> 16 - is the minor version
+// CMDARGS_VERSION_HEX >> 8  - is the bugfix level
+
+#define CMDARGS_VERSION_MAJOR 0
+#define CMDARGS_VERSION_MINOR 1
+#define CMDARGS_VERSION_BUGFIX 1
+
+#define CMDARGS_VERSION_HEX \
+    static_cast<std::uint32_t>((CMDARGS_VERSION_MAJOR << 24) \
+        | (CMDARGS_VERSION_MINOR << 16) \
+        | (CMDARGS_VERSION_BUGFIX << 8))
+
+#define CMDARGS_VERSION_GET_MAJOR(x)  static_cast<std::uint8_t>(x >> 24)
+#define CMDARGS_VERSION_GET_MINOR(x)  static_cast<std::uint8_t>(x >> 16)
+#define CMDARGS_VERSION_GET_BUGFIX(x) static_cast<std::uint8_t>(x >> 8 )
+
+#define CMDARGS_VERSION_STRING \
+    __CMDARGS__STRINGIZE(CMDARGS_VERSION_MAJOR) \
+    "." __CMDARGS__STRINGIZE(CMDARGS_VERSION_MINOR) \
+    "." __CMDARGS__STRINGIZE(CMDARGS_VERSION_BUGFIX)
+
+/*************************************************************************************************/
+
 //#include <iostream> // TODO: comment out
 
 #include <ostream>

@@ -1836,6 +1836,26 @@ static void test_as_tuple() {
 
 /*************************************************************************************************/
 
+static void test_version() {
+    constexpr auto version = CMDARGS_VERSION_HEX;
+    constexpr auto major = CMDARGS_VERSION_GET_MAJOR(version);
+    constexpr auto minor = CMDARGS_VERSION_GET_MINOR(version);
+    constexpr auto bugfix= CMDARGS_VERSION_GET_BUGFIX(version);
+
+    static_assert(major == CMDARGS_VERSION_MAJOR);
+    static_assert(minor == CMDARGS_VERSION_MINOR);
+    static_assert(bugfix == CMDARGS_VERSION_BUGFIX);
+
+    constexpr char str[] = {
+        __CMDARGS__STRINGIZE(CMDARGS_VERSION_MAJOR) "."
+        __CMDARGS__STRINGIZE(CMDARGS_VERSION_MINOR) "."
+        __CMDARGS__STRINGIZE(CMDARGS_VERSION_BUGFIX)
+    };
+    static_assert(std::string_view{CMDARGS_VERSION_STRING} == str);
+}
+
+/*************************************************************************************************/
+
 int main(int, char **) {
     test_templates::test_templates();
 
@@ -1870,6 +1890,8 @@ int main(int, char **) {
     test_predefined_converters();
 
     test_as_tuple();
+
+    test_version();
 
     return EXIT_SUCCESS;
 }
