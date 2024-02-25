@@ -30,6 +30,9 @@
 #define __CMDARGS__STRINGIZE_I(x) #x
 #define __CMDARGS__STRINGIZE(x) __CMDARGS__STRINGIZE_I(x)
 
+#define __CMDARGS_CAT_I(l, r) l ## r
+#define __CMDARGS_CAT(l, r) __CMDARGS_CAT_I(l, r)
+
 /*************************************************************************************************/
 
 // CMDARGS_VERSION_HEX >> 24 - is the major version
@@ -722,6 +725,8 @@ struct optional_option_t {};
 template<typename ...Args>
 struct args_pack;
 
+#define __CMDARGS__OPTION_SUFFIX _tag
+
 template<typename ID, typename V>
 struct option final {
     template<typename ...Args>
@@ -779,7 +784,7 @@ public:
 
     static constexpr std::string_view name() noexcept {
         constexpr auto n = details::type_name<ID>();
-        return n ;
+        return n.substr(0, n.length()-(sizeof(__CMDARGS__STRINGIZE(__CMDARGS__OPTION_SUFFIX))-1));
     }
     std::string_view type_name() const noexcept { return m_type_name; }
     std::string_view description() const noexcept { return m_description; }
@@ -918,8 +923,8 @@ private:
 
 namespace details {
 
-using help_option_type = option<struct help, bool>;
-using version_option_type = option<struct version, std::string>;
+using help_option_type = option<__CMDARGS_CAT(struct help, __CMDARGS__OPTION_SUFFIX), bool>;
+using version_option_type = option<__CMDARGS_CAT(struct version, __CMDARGS__OPTION_SUFFIX), std::string>;
 
 } // ns details
 
@@ -1233,7 +1238,6 @@ public:
         );
     }
 
-private:
     template<typename F>
     void for_each(F &&f, bool inited_only = false) const {
         for_each(m_kwords, std::forward<F>(f), inited_only);
@@ -1243,6 +1247,7 @@ private:
         for_each(m_kwords, std::forward<F>(f), inited_only);
     }
 
+private:
     template<typename Iter, typename ...TArgs>
     friend void parse_kv_list(
          std::string *emsg
@@ -1896,9 +1901,43 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
 }
 
 /*************************************************************************************************/
+// for debug purposes
+
+template<
+     typename KWords
+    ,typename = typename std::enable_if<
+        std::is_class<KWords>::value &&
+        std::is_base_of<kwords_group, KWords>::value
+    >::type
+>
+std::ostream& dump_group(std::ostream &os, const KWords &kw) {
+    const auto &tuple = details::to_tuple(kw);
+    std::apply(
+        [&os](auto&&... args) {
+            ((args.dump(os) << "*******************************************" << std::endl), ...);
+        }
+        ,tuple
+    );
+
+    return os;
+}
+
+template<typename ...Types>
+std::ostream& dump_group(std::ostream &os, const args_pack<Types...> &args) {
+    args.for_each(
+        [&os](const auto &it){
+            it.dump(os) << "*******************************************" << std::endl;
+            return true;
+        }
+    );
+
+    return os;
+}
+
+/*************************************************************************************************/
 
 #define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
-    const ::cmdargs::option<struct OPTION_NAME, OPTION_TYPE> \
+const ::cmdargs::option<__CMDARGS_CAT(struct OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
         OPTION_NAME{#OPTION_TYPE, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
 #define CMDARGS_OPTION_ADD_HELP() \

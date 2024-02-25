@@ -29,6 +29,10 @@
 #include <iostream>
 #include <cassert>
 
+#ifdef NDEBUG
+#   error "This file MUST be compiled with NDEBUG undefined!"
+#endif
+
 template<typename T>
 void foo() { std::cout << __PRETTY_FUNCTION__ << std::endl; }
 
@@ -1799,13 +1803,13 @@ static void test_predefined_converters() {
 
 /*************************************************************************************************/
 
-struct kwords: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-    CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
-    CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-} const kwords;
-
 static void test_as_tuple() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+    } const kwords;
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
     char * const margv[] = {
@@ -1856,6 +1860,124 @@ static void test_version() {
 
 /*************************************************************************************************/
 
+static void test_dump() {
+    {
+        struct kwords: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        } const kwords;
+
+        std::stringstream ss;
+        cmdargs::dump_group(ss, kwords);
+
+        static const char *expected =
+R"(name            : netsrc
+type            : std::string
+description     : "network source name"
+is required     : false
+value           : <UNINITIALIZED>
+custom validator: false
+custom converter: false
+relation     AND: 0
+relation      OR: 0
+relation     NOT: 1 (--filesrc)
+*******************************************
+name            : filesrc
+type            : std::string
+description     : "file source name"
+is required     : false
+value           : <UNINITIALIZED>
+custom validator: false
+custom converter: false
+relation     AND: 0
+relation      OR: 0
+relation     NOT: 1 (--netsrc)
+*******************************************
+name            : fmode
+type            : std::string
+description     : "processing mode"
+is required     : true
+value           : <UNINITIALIZED>
+custom validator: false
+custom converter: false
+relation     AND: 0
+relation      OR: 2 (--netsrc, --filesrc)
+relation     NOT: 0
+*******************************************
+)";
+
+        assert(ss.str() == expected);
+    }
+    {
+        struct kwords: cmdargs::kwords_group {
+            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
+            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+            "cmdargs-test"
+            ,"--netsrc=192.168.1.106"
+            ,"--fmode=read"
+        };
+#pragma GCC diagnostic pop
+
+        std::string emsg;
+        const auto args = cmdargs::parse_args(
+             &emsg
+            ,std::size(margv)
+            ,margv
+            ,kwords
+        );
+        assert(emsg.empty());
+
+        std::stringstream ss;
+        cmdargs::dump_group(ss, args);
+
+        static const char *expected =
+R"(name            : netsrc
+type            : std::string
+description     : "network source name"
+is required     : false
+value           : 192.168.1.106
+custom validator: false
+custom converter: false
+relation     AND: 0
+relation      OR: 0
+relation     NOT: 1 (--filesrc)
+*******************************************
+name            : filesrc
+type            : std::string
+description     : "file source name"
+is required     : false
+value           : <UNINITIALIZED>
+custom validator: false
+custom converter: false
+relation     AND: 0
+relation      OR: 0
+relation     NOT: 1 (--netsrc)
+*******************************************
+name            : fmode
+type            : std::string
+description     : "processing mode"
+is required     : true
+value           : read
+custom validator: false
+custom converter: false
+relation     AND: 0
+relation      OR: 2 (--netsrc, --filesrc)
+relation     NOT: 0
+*******************************************
+)";
+        assert(ss.str() == expected);
+    }
+}
+
+/*************************************************************************************************/
+
 int main(int, char **) {
     test_templates::test_templates();
 
@@ -1892,6 +2014,8 @@ int main(int, char **) {
     test_as_tuple();
 
     test_version();
+
+    test_dump();
 
     return EXIT_SUCCESS;
 }
