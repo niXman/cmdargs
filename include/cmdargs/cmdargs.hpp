@@ -135,7 +135,7 @@ struct type_name_holder {
 
 template <typename T>
 constexpr auto type_name() noexcept -> std::string_view {
-    constexpr auto& value = type_name_holder<T>::value;
+    constexpr auto &value = type_name_holder<T>::value;
     return std::string_view{value.data(), value.size()};
 }
 

@@ -44,7 +44,7 @@ bool has_substring(const std::string &str, const char *substr) {
 
 /*************************************************************************************************/
 
-namespace test_templates {
+namespace test_templates_impl {
 
 using namespace cmdargs::details;
 
@@ -69,17 +69,17 @@ constexpr bool is_relation() {
 }
 
 template<typename ...Types>
-constexpr bool contains_and(const std::tuple<Types...> &) {
+constexpr bool contains_and_f(const std::tuple<Types...> &) {
     return contains<relation_pred_and, char, Types...>::value;
 }
 
 template<typename ...Types>
-constexpr bool contains_or(const std::tuple<Types...> &) {
+constexpr bool contains_or_f(const std::tuple<Types...> &) {
     return contains<relation_pred_or, char, Types...>::value;
 }
 
 template<typename ...Types>
-constexpr bool contains_not(const std::tuple<Types...> &) {
+constexpr bool contains_not_f(const std::tuple<Types...> &) {
     return contains<relation_pred_not, char, Types...>::value;
 }
 
@@ -101,7 +101,11 @@ constexpr bool has_relation_not(const std::tuple<Types...> &) {
     return std::is_same<list_type, relations_list<e_relation_type::NOT>>::value;
 }
 
+} // ns test_templates_impl
+
 static void test_templates() {
+    using namespace test_templates_impl;
+
     static_assert(true == check_and<relations_list<e_relation_type::AND>>());
     static_assert(true == check_or<relations_list<e_relation_type::OR>>());
     static_assert(true == check_not<relations_list<e_relation_type::NOT>>());
@@ -117,27 +121,27 @@ static void test_templates() {
         ,relations_list<e_relation_type::OR>{}
         ,relations_list<e_relation_type::NOT>{}
     );
-    static_assert(true == contains_and(tuple));
-    static_assert(true == contains_or(tuple));
-    static_assert(true == contains_not(tuple));
+    static_assert(true == contains_and_f(tuple));
+    static_assert(true == contains_or_f(tuple));
+    static_assert(true == contains_not_f(tuple));
 
     constexpr auto tuple2 = std::make_tuple(
          int{}
         ,char{}
         ,float{}
     );
-    static_assert(false == contains_and(tuple2));
-    static_assert(false == contains_or(tuple2));
-    static_assert(false == contains_not(tuple2));
+    static_assert(false == contains_and_f(tuple2));
+    static_assert(false == contains_or_f(tuple2));
+    static_assert(false == contains_not_f(tuple2));
 
     constexpr auto tuple3 = std::make_tuple(
          relations_list<e_relation_type::AND>{}
         ,char{}
         ,float{}
     );
-    static_assert(true  == contains_and(tuple3));
-    static_assert(false == contains_or(tuple3));
-    static_assert(false == contains_not(tuple3));
+    static_assert(true  == contains_and_f(tuple3));
+    static_assert(false == contains_or_f(tuple3));
+    static_assert(false == contains_not_f(tuple3));
 
     static_assert(true  == has_relation_and(tuple3));
 
@@ -146,9 +150,9 @@ static void test_templates() {
         ,relations_list<e_relation_type::OR>{}
         ,float{}
     );
-    static_assert(false == contains_and(tuple4));
-    static_assert(true  == contains_or(tuple4));
-    static_assert(false == contains_not(tuple4));
+    static_assert(false == contains_and_f(tuple4));
+    static_assert(true  == contains_or_f(tuple4));
+    static_assert(false == contains_not_f(tuple4));
 
     static_assert(true  == has_relation_or(tuple4));
 
@@ -157,14 +161,12 @@ static void test_templates() {
         ,char{}
         ,relations_list<e_relation_type::NOT>{}
     );
-    static_assert(false == contains_and(tuple5));
-    static_assert(false == contains_or(tuple5));
-    static_assert(true  == contains_not(tuple5));
+    static_assert(false == contains_and_f(tuple5));
+    static_assert(false == contains_or_f(tuple5));
+    static_assert(true  == contains_not_f(tuple5));
 
     static_assert(true  == has_relation_not(tuple5));
 }
-
-} // ns test_templates
 
 static void test_decl_00() {
     struct: cmdargs::kwords_group {
@@ -1978,44 +1980,47 @@ relation     NOT: 0
 
 /*************************************************************************************************/
 
+#define TEST(func) \
+    { std::cout << "test for " << #func << "..." << std::flush; func(); std::cout << "passed!" << std::endl; }
+
 int main(int, char **) {
-    test_templates::test_templates();
+    TEST(test_templates);
 
-    test_decl_00();
-    test_decl_01();
-    test_decl_02();
-    test_decl_03();
-    test_decl_04();
-    test_decl_05();
+    TEST(test_decl_00);
+    TEST(test_decl_01);
+    TEST(test_decl_02);
+    TEST(test_decl_03);
+    TEST(test_decl_04);
+    TEST(test_decl_05);
 
-    test_bool_00();
+    TEST(test_bool_00);
 
-    test_cond_and_00();
+    TEST(test_cond_and_00);
 
-    test_cond_or_00();
+    TEST(test_cond_or_00);
 
-    test_cond_not_00();
+    TEST(test_cond_not_00);
 
-    test_default_00();
+    TEST(test_default_00);
 
-    test_validator_00();
+    TEST(test_validator_00);
 
-    test_converter_00();
+    TEST(test_converter_00);
 
-    test_default_value_v2();
+    TEST(test_default_value_v2);
 
-    test_to_file_00();
-    test_from_file_00();
+    TEST(test_to_file_00);
+    TEST(test_from_file_00);
 
-    test_show_help_and_version_00();
+    TEST(test_show_help_and_version_00);
 
-    test_predefined_converters();
+    TEST(test_predefined_converters);
 
-    test_as_tuple();
+    TEST(test_as_tuple);
 
-    test_version();
+    TEST(test_version);
 
-    test_dump();
+    TEST(test_dump);
 
     return EXIT_SUCCESS;
 }
