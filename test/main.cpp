@@ -33,9 +33,6 @@
 #   error "This file MUST be compiled with NDEBUG undefined!"
 #endif
 
-template<typename T>
-void foo() { std::cout << __PRETTY_FUNCTION__ << std::endl; }
-
 /*************************************************************************************************/
 
 bool has_substring(const std::string &str, const char *substr) {
@@ -294,6 +291,90 @@ static void test_decl_05() {
     assert(kwords.fsize.and_list().empty() == true);
     assert(kwords.fsize.or_list().empty() == true);
     assert(kwords.fsize.not_list().empty() == false);
+}
+
+/*************************************************************************************************/
+
+static void test_string_trim() {
+    static const std::string_view ws{" \n\r\t"};
+    // left trim
+    {
+        std::string_view src = " string";
+        auto res = cmdargs::details::ltrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "\nstring";
+        auto res = cmdargs::details::ltrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "\rstring";
+        auto res = cmdargs::details::ltrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "\tstring";
+        auto res = cmdargs::details::ltrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = " \n\r\tstring";
+        auto res = cmdargs::details::ltrim(src, ws);
+        assert(res == "string");
+    }
+    // right trim
+    {
+        std::string_view src = "string ";
+        auto res = cmdargs::details::rtrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "string\n";
+        auto res = cmdargs::details::rtrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "string\r";
+        auto res = cmdargs::details::rtrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "string\t";
+        auto res = cmdargs::details::rtrim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "string \n\r\t";
+        auto res = cmdargs::details::rtrim(src, ws);
+        assert(res == "string");
+    }
+    // left + right trim
+    {
+        std::string_view src = " string ";
+        auto res = cmdargs::details::trim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "\nstring\n";
+        auto res = cmdargs::details::trim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "\rstring\r";
+        auto res = cmdargs::details::trim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = "\tstring\t";
+        auto res = cmdargs::details::trim(src, ws);
+        assert(res == "string");
+    }
+    {
+        std::string_view src = " \n\r\tstring \n\r\t";
+        auto res = cmdargs::details::trim(src, ws);
+        assert(res == "string");
+    }
 }
 
 /*************************************************************************************************/
@@ -1024,8 +1105,16 @@ static void test_converter_00() {
 
 static void test_default_value_v2() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc), default_(std::string{"127.0.0.1"}));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc), default_(std::string{"data.txt"}));
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name"
+            ,optional
+            ,not_(filesrc)
+            ,default_<std::string>("127.0.0.1")
+        );
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name"
+            ,optional
+            ,not_(netsrc)
+            ,default_<std::string>("data.txt")
+        );
         CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -1992,6 +2081,8 @@ int main(int, char **) {
     TEST(test_decl_03);
     TEST(test_decl_04);
     TEST(test_decl_05);
+
+    TEST(test_string_trim);
 
     TEST(test_bool_00);
 

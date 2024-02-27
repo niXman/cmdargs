@@ -316,14 +316,14 @@ auto to_tuple(const T &kw) noexcept {
 /*************************************************************************************************/
 // string ops
 
-inline void ltrim(std::string &s, const char* t = " \t\n\r") noexcept
-{ s.erase(0, s.find_first_not_of(t)); }
+inline std::string_view ltrim(std::string_view s, std::string_view ws) noexcept
+{ return s.substr(s.find_first_not_of(ws)); }
 
-inline void rtrim(std::string &s, const char* t = " \t\n\r") noexcept
-{ s.erase(s.find_last_not_of(t) + 1); }
+inline std::string_view rtrim(std::string_view s, std::string_view ws) noexcept
+{ return s.substr(0, s.find_last_not_of(ws) + 1); }
 
-inline void trim(std::string &s, const char* t = " \t\n\r") noexcept
-{ rtrim(s, t); ltrim(s, t); }
+inline std::string_view trim(std::string_view s, std::string_view ws = " \t\n\r") noexcept
+{ auto res = ltrim(s, ws); res = rtrim(res, ws); return res; }
 
 template<
      template<typename, typename> typename Sequence
@@ -332,14 +332,15 @@ template<
 >
 inline bool split(Sequence<T, A> &result, std::string_view str, char delim) {
     std::size_t start = 0;
-
-    for ( auto found = str.find(delim); found != std::string_view::npos; found = str.find(delim, start) ) {
-        result.emplace_back(str.begin() + start, str.begin() + found);
+    std::size_t found = str.find(delim);
+    for ( ; found != std::string_view::npos; found = str.find(delim, start) ) {
+        result.emplace_back(str.begin() + start, found - start);
         start = found + sizeof(delim);
     }
 
-    if ( start != str.size() )
-        result.emplace_back(str.begin() + start, str.end());
+    if ( start != str.size() ) {
+        result.emplace_back(str.begin() + start, str.length() - start);
+    }
 
     return !result.empty();
 }
@@ -389,22 +390,27 @@ constexpr auto ct_init_array(const char *s, char c0, char c1) noexcept {
 
 template<typename T>
 typename std::enable_if_t<std::is_same<T, std::string>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
-    val->assign(ptr, len);
+from_string_impl(T *val, std::string_view str) noexcept {
+    *val = str;
+}
+
+template<typename T>
+typename std::enable_if_t<std::is_same<T, std::string_view>::value>
+from_string_impl(T *val, std::string_view str) noexcept {
+    *val = str;
 }
 
 template<typename T>
 typename std::enable_if_t<std::is_same<T, bool>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
-    *val = std::string_view{ptr, len} == "true";
+from_string_impl(T *val, std::string_view str) noexcept {
+    *val = (str == "true" || str == "1");
 }
 
 template<typename T>
 typename std::enable_if_t<
-    std::is_integral<T>::value
-        && !std::is_same<T, bool>::value
+    std::is_integral<T>::value && !std::is_same<T, bool>::value
 >
-from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+from_string_impl(T *val, std::string_view str) noexcept {
     constexpr const char *fmt = (
         std::is_unsigned<T>::value
         ? (std::is_same<T, std::uint8_t>::value
@@ -421,38 +427,38 @@ from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
         )
     );
 
-    enum { S = ct_strlen(fmt)+1 };
-    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
+    constexpr auto fmt_len = ct_strlen(fmt) + 1u;
+    const auto fmtbuf = ct_init_array<fmt_len>(fmt, '0' + (str.length() / 10), '0' + (str.length() % 10));
 
-    std::sscanf(ptr, fmtbuf.data(), val);
+    std::sscanf(str.data(), fmtbuf.data(), val);
 }
 
 template<typename T>
 typename std::enable_if_t<std::is_enum<T>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+from_string_impl(T *val, std::string_view str) noexcept {
     typename std::underlying_type<T>::type tmp{};
-    from_string_impl(&tmp, ptr, len);
+    from_string_impl(&tmp, str);
     *val = static_cast<T>(tmp);
 }
 
 template<typename T>
 typename std::enable_if_t<std::is_floating_point<T>::value>
-from_string_impl(T *val, const char *ptr, std::size_t len) noexcept {
+from_string_impl(T *val, std::string_view str) noexcept {
     constexpr const char *fmt = (
         std::is_same<T, float>::value
             ? "%  f"
             : "%  lf"
     );
 
-    enum { S = ct_strlen(fmt)+1 };
-    const auto fmtbuf = ct_init_array<S>(fmt, '0' + (len / 10), '0' + (len % 10));
+    constexpr auto fmt_len = ct_strlen(fmt) + 1u;
+    const auto fmtbuf = ct_init_array<fmt_len>(fmt, '0' + (str.length() / 10), '0' + (str.length() % 10));
 
-    std::sscanf(ptr, fmtbuf.data(), val);
+    std::sscanf(str.data(), fmtbuf.data(), val);
 }
 
 template<typename T>
 typename std::enable_if_t<std::is_pointer<T>::value>
-from_string_impl(T *val, const char *, std::size_t) noexcept {
+from_string_impl(T *val, std::string_view /*str*/) noexcept {
     *val = nullptr;
 }
 
@@ -802,11 +808,11 @@ public:
     const auto& not_list() const noexcept { return m_relation_not; }
 
     bool uses_custom_validator() const noexcept { return m_uses_custom_validator; }
-    bool validate(const char *str, std::size_t len) const noexcept { return m_validator({str, len}); }
+    bool validate(std::string_view str) const noexcept { return m_validator(str); }
     bool uses_custom_converter() const noexcept { return m_uses_custom_converter; }
-    bool convert(const char *str, std::size_t len) {
+    bool convert(std::string_view str) {
         value_type v{};
-        if ( m_converter(v, {str, len}) ) {
+        if ( m_converter(v, str) ) {
             m_value = std::move(v);
             return true;
         }
@@ -847,7 +853,7 @@ public:
 
 private:
     static bool default_converter(value_type &dst, std::string_view str) {
-        details::from_string_impl(&dst, str.data(), str.length());
+        details::from_string_impl(&dst, str);
         return true;
     }
     static bool default_validator(std::string_view /*str*/) {
@@ -939,11 +945,11 @@ template<
     ,typename A
 >
 bool convert_as_sequence(Sequence<T, A> &dst, std::string_view str, char sep) {
-    std::vector<std::string> vec;
+    std::vector<std::string_view> vec;
     split(vec, str, sep);
     for ( const auto &it: vec) {
         T v{};
-        from_string_impl(&v, it.data(), it.size());
+        from_string_impl(&v, it);
 
         dst.emplace_back(std::move(v));
     }
@@ -959,19 +965,19 @@ template<
     ,typename A
 >
 bool convert_as_assoc(Assoc<K, V, A> &dst, std::string_view str, char pair_sep, char kv_sep) {
-    std::vector<std::string> vec;
+    std::vector<std::string_view> vec;
     convert_as_sequence(vec, str, pair_sep);
     for ( const auto &it: vec ) {
-        std::vector<std::string> pair;
+        std::vector<std::string_view> pair;
         convert_as_sequence(pair, it, kv_sep);
         if ( pair.size() != 2 )
             return false;
 
         K k{};
-        from_string_impl(&k, pair[0].data(), pair[0].size());
+        from_string_impl(&k, pair[0]);
 
         V v{};
-        from_string_impl(&v, pair[1].data(), pair[1].size());
+        from_string_impl(&v, pair[1]);
 
         dst.emplace(std::move(k), std::move(v));
     }
@@ -990,7 +996,7 @@ bool convert_as_assoc(Assoc<K, A> &dst, std::string_view str, char sep) {
     convert_as_sequence(vec, str, sep);
     for ( const auto &it: vec ) {
         K k{};
-        from_string_impl(&k, it.data(), it.size());
+        from_string_impl(&k, {it.data(), it.size()});
 
         dst.emplace(std::move(k));
     }
@@ -1471,20 +1477,15 @@ void parse_kv_list(
                 continue;
             }
         }
-
-        std::string line = pref
-            ? (*beg) + pref_len
-            : (*beg)
-        ;
-
-        cmdargs::details::trim(line);
+        std::string_view line = pref ? (*beg) + pref_len : (*beg);
+        line = cmdargs::details::trim(line);
 
         auto pos = line.find('=');
-        if ( pos != std::string::npos ) {
-            line[pos] = '\0';
-        }
+        std::string_view key = (pos != std::string_view::npos)
+            ? line.substr(0u, pos)
+            : line
+        ;
 
-        std::string_view key = line.c_str();
         auto unexpected = args.check_for_unexpected(key);
         if ( !unexpected.empty() ) {
             std::string msg = "there is an extra \"";
@@ -1501,14 +1502,13 @@ void parse_kv_list(
             return;
         }
 
-        if ( pos != std::string::npos ) {
+        if ( pos != std::string_view::npos ) {
             std::string msg;
-            const char *val = line.c_str() + pos + 1;
-            std::size_t len = (line.length() - pos) - 1;
+            std::string_view val = line.substr(pos + 1);
             args.for_each(
-                [pref, key, val, len, &msg](auto &item) {
-                    if ( item.name().compare(key) == 0 ) {
-                        if ( !item.validate(val, len) ) {
+                [pref, key, val, &msg](auto &item) {
+                    if ( item.name() == key ) {
+                        if ( !item.validate(val) ) {
                             msg = "an invalid value \"";
                             msg += val;
                             msg += "\" was received for \"";
@@ -1518,7 +1518,7 @@ void parse_kv_list(
 
                             return false;
                         }
-                        if ( !item.convert(val, len) ) {
+                        if ( !item.convert(val) ) {
                             msg = "can't convert value \"";
                             msg += val;
                             msg += "\" for \"";
@@ -1545,10 +1545,7 @@ void parse_kv_list(
                 return;
             }
         } else {
-            static const std::string_view help_key{"help"};
-            static const std::string_view version_key{"version"};
-
-            if ( key != version_key ) {
+            if ( key != details::version_option_type::name() ) {
                 if ( !args.is_bool_type(key) ) {
                     std::string msg = "a value must be provided for \"";
                     msg += (pref ? pref : "");
@@ -1566,9 +1563,9 @@ void parse_kv_list(
 
                 args.for_each(
                     [key](auto &item) {
-                        if ( item.name().compare(key) == 0 ) {
-                            static const char _true[] = "true";
-                            item.convert(_true, sizeof(_true)-1);
+                        if ( item.name() == key ) {
+                            static const std::string_view _true{"true"};
+                            item.convert(_true);
                             return false;
                         }
                         return true;
@@ -1579,7 +1576,7 @@ void parse_kv_list(
                 // version case
                 args.for_each(
                     [key](auto &item) {
-                        if ( item.name() == version_key ) {
+                        if ( item.name() == details::version_option_type::name() ) {
                             item.set_value(item.get_default_value());
                             return false;
                         }
@@ -1589,7 +1586,9 @@ void parse_kv_list(
                 );
             }
 
-            if ( key == help_key || key == version_key ) {
+            if ( key == details::help_option_type::name()
+                || key == details::version_option_type::name() )
+            {
                 return;
             }
         }
@@ -1937,16 +1936,16 @@ std::ostream& dump_group(std::ostream &os, const args_pack<Types...> &args) {
 /*************************************************************************************************/
 
 #define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
-const ::cmdargs::option<__CMDARGS_CAT(struct OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
+    const ::cmdargs::option<struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
         OPTION_NAME{#OPTION_TYPE, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
 #define CMDARGS_OPTION_ADD_HELP() \
     const ::cmdargs::details::help_option_type help{"bool", "show help message" \
-        , std::make_tuple(optional)};
+        , std::make_tuple(optional)}
 
 #define CMDARGS_OPTION_ADD_VERSION(str) \
     const ::cmdargs::details::version_option_type version{"std::string", "show version message" \
-        , std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})};
+        , std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})}
 
 /*************************************************************************************************/
 
