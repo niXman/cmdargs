@@ -135,6 +135,13 @@ struct type_name_holder {
 
 template <typename T>
 constexpr auto type_name() noexcept -> std::string_view {
+    // because of "std::basic_string"/"basic_string_view"
+    if constexpr ( std::is_same_v<T, std::string> ) {
+        return {"std::string"};
+    } else if ( std::is_same_v<T, std::string_view> ) {
+        return {"std::string_view"};
+    }
+
     constexpr auto &value = type_name_holder<T>::value;
     return std::string_view{value.data(), value.size()};
 }
@@ -292,16 +299,70 @@ auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 20>) noe
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = object;
     return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19);
 }
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 21>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 22>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 23>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 24>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 25>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 26>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 27>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 28>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 29>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 30>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 31>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30);
+}
+template<typename T>
+auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 32>) noexcept {
+    const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31] = object;
+    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31);
+}
 
-template<
-     typename T
-    ,typename = struct current_value
-    ,std::size_t = 21
-    ,typename = struct required_value
-    ,std::size_t N
->
+template<typename T, std::size_t N>
 auto to_tuple_impl(const T &, std::integral_constant<std::size_t, N>) noexcept {
-    static_assert(N < 21, "Please increase the number of placeholders");
+    static_assert(N < 33, "Please increase the number of placeholders");
 }
 
 template<
@@ -764,8 +825,8 @@ public:
     option(option &&) = default;
 
     template<typename ...Args>
-    option(const char *type, const char *descr, std::tuple<Args...> as_tuple)
-        :m_type_name{type}
+    option(const char *descr, std::tuple<Args...> as_tuple)
+        :m_type_name{details::type_name<V>()}
         ,m_description{descr}
         ,m_is_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
         ,m_uses_custom_validator{has_visitor<validator_type>(as_tuple)}
@@ -1037,35 +1098,14 @@ struct kwords_group {
     }
 
     template<typename ...Types>
-    static auto and_(const Types &...args) noexcept {
-        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
-        static_assert(
-            std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
-            ,"duplicates of keywords is detected!"
-        );
-        return details::relations_list<details::e_relation_type::AND, Types...>{args.name()...};
-    }
+    static auto and_(const Types &...args) noexcept
+    { return get_relations<details::e_relation_type::AND>(args...); }
     template<typename ...Types>
-    static auto or_(const Types &...args) noexcept {
-        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
-        static_assert(
-            std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
-            ,"duplicates of keywords is detected!"
-        );
-        return details::relations_list<details::e_relation_type::OR, Types...>{args.name()...};
-    }
+    static auto or_(const Types &...args) noexcept
+    { return get_relations<details::e_relation_type::OR>(args...); }
     template<typename ...Types>
-    static auto not_(const Types &...args) noexcept {
-        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
-        static_assert(
-            std::tuple_size<tuple_type>::value
-                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
-            ,"duplicates of keywords is detected!"
-        );
-        return details::relations_list<details::e_relation_type::NOT, Types...>{args.name()...};
-    }
+    static auto not_(const Types &...args) noexcept
+    { return get_relations<details::e_relation_type::NOT>(args...); }
 
     template<typename F>
     static auto validator_(F &&f) noexcept {
@@ -1114,6 +1154,18 @@ struct kwords_group {
                 return details::convert_as_map(dst, str, pair_sep, kv_sep);
             }
         );
+    }
+
+private:
+    template<details::e_relation_type R, typename ...Types>
+    static auto get_relations(const Types &...args) noexcept {
+        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
+        static_assert(
+            std::tuple_size<tuple_type>::value
+                == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
+            ,"duplicates of keywords is detected!"
+        );
+        return details::relations_list<R, Types...>{args.name()...};
     }
 };
 
@@ -1244,6 +1296,8 @@ public:
         );
     }
 
+    // F -> bool(const auto & option<...>)
+    // F should return TRUE to continue, of FALSE to break.
     template<typename F>
     void for_each(F &&f, bool inited_only = false) const {
         for_each(m_kwords, std::forward<F>(f), inited_only);
@@ -1937,14 +1991,14 @@ std::ostream& dump_group(std::ostream &os, const args_pack<Types...> &args) {
 
 #define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
     const ::cmdargs::option<struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
-        OPTION_NAME{#OPTION_TYPE, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
+        OPTION_NAME{OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
 #define CMDARGS_OPTION_ADD_HELP() \
-    const ::cmdargs::details::help_option_type help{"bool", "show help message" \
+    const ::cmdargs::details::help_option_type help{"show help message" \
         , std::make_tuple(optional)}
 
 #define CMDARGS_OPTION_ADD_VERSION(str) \
-    const ::cmdargs::details::version_option_type version{"std::string", "show version message" \
+    const ::cmdargs::details::version_option_type version{"show version message" \
         , std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})}
 
 /*************************************************************************************************/

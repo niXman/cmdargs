@@ -2069,8 +2069,106 @@ relation     NOT: 0
 
 /*************************************************************************************************/
 
+#ifdef TEST_MAX_OPTIONS
+static void test_max_options() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(opt0 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt1 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt2 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt3 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt4 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt5 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt6 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt7 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt8 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt9 , std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt10, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt11, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt12, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt13, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt14, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt15, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt16, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt17, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt18, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt19, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt20, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt21, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt22, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt23, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt24, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt25, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt26, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt27, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt28, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt29, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt30, std::size_t, "test option", optional);
+        CMDARGS_OPTION_ADD(opt31, std::size_t, "test option", optional);
+    } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+    char * const margv[] = {
+        "cmdargs-test"
+        ,"--opt0=0"
+        ,"--opt1=1"
+        ,"--opt2=2"
+        ,"--opt3=3"
+        ,"--opt4=4"
+        ,"--opt5=5"
+        ,"--opt6=6"
+        ,"--opt7=7"
+        ,"--opt8=8"
+        ,"--opt9=9"
+        ,"--opt10=10"
+        ,"--opt11=11"
+        ,"--opt12=12"
+        ,"--opt13=13"
+        ,"--opt14=14"
+        ,"--opt15=15"
+        ,"--opt16=16"
+        ,"--opt17=17"
+        ,"--opt18=18"
+        ,"--opt19=19"
+        ,"--opt20=20"
+        ,"--opt21=21"
+        ,"--opt22=22"
+        ,"--opt23=23"
+        ,"--opt24=24"
+        ,"--opt25=25"
+        ,"--opt26=26"
+        ,"--opt27=27"
+        ,"--opt28=28"
+        ,"--opt29=29"
+        ,"--opt30=30"
+        ,"--opt31=31"
+    };
+#pragma GCC diagnostic pop
+
+    std::string emsg;
+    const auto args = cmdargs::parse_args(
+         &emsg
+        ,std::size(margv)
+        ,margv
+        ,kwords
+    );
+    assert(emsg.empty());
+    static_assert(args.size() == 32);
+
+    std::size_t cnt = 0;
+    args.for_each([&cnt](const auto &it){
+        assert(it.get_value() == cnt);
+        ++cnt;
+        return true;
+    });
+    assert(cnt == 32);
+}
+#endif // TEST_MAX_OPTIONS
+
+/*************************************************************************************************/
+
 #define TEST(func) \
-    { std::cout << "test for " << #func << "..." << std::flush; func(); std::cout << "passed!" << std::endl; }
+    { std::cout << "test for " #func "..." << std::flush; func(); std::cout << "passed!" << std::endl; }
 
 int main(int, char **) {
     TEST(test_templates);
@@ -2112,6 +2210,10 @@ int main(int, char **) {
     TEST(test_version);
 
     TEST(test_dump);
+
+#ifdef TEST_MAX_OPTIONS
+    TEST(test_max_options);
+#endif
 
     return EXIT_SUCCESS;
 }
