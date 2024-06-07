@@ -1894,7 +1894,48 @@ static void test_predefined_converters() {
 
 /*************************************************************************************************/
 
-static void test_as_tuple() {
+static void test_as_optionals() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+    } const kwords;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+    char * const margv[] = {
+        "cmdargs-test"
+        ,"--netsrc=192.168.1.106"
+        ,"--fmode=read"
+    };
+#pragma GCC diagnostic pop
+
+    std::string emsg;
+    const auto [netsrc, filesrc, fmode] = cmdargs::parse_args(
+         &emsg
+        ,std::size(margv)
+        ,margv
+        ,kwords
+    ).optionals();
+
+    static_assert(std::is_same_v<decltype(netsrc), const std::optional<std::string>>);
+    static_assert(std::is_same_v<decltype(filesrc), const std::optional<std::string>>);
+    static_assert(std::is_same_v<decltype(fmode), const std::optional<std::string>>);
+
+    assert(emsg.empty());
+
+    assert(!filesrc);
+
+    assert(netsrc);
+    assert(netsrc.value() == "192.168.1.106");
+
+    assert(fmode);
+    assert(fmode.value() == "read");
+}
+
+/*************************************************************************************************/
+
+static void test_as_values() {
     struct kwords: cmdargs::kwords_group {
         CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
         CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
@@ -1918,15 +1959,19 @@ static void test_as_tuple() {
         ,kwords
     ).values();
 
+    static_assert(std::is_same_v<decltype(netsrc), const std::string>);
+    static_assert(std::is_same_v<decltype(filesrc), const std::string>);
+    static_assert(std::is_same_v<decltype(fmode), const std::string>);
+
     assert(emsg.empty());
 
-    assert(!filesrc);
+    assert(filesrc.empty());
 
-    assert(netsrc);
-    assert(netsrc.value() == "192.168.1.106");
+    assert(!netsrc.empty());
+    assert(netsrc == "192.168.1.106");
 
-    assert(fmode);
-    assert(fmode.value() == "read");
+    assert(!fmode.empty());
+    assert(fmode == "read");
 }
 
 /*************************************************************************************************/
@@ -2205,7 +2250,8 @@ int main(int, char **) {
 
     TEST(test_predefined_converters);
 
-    TEST(test_as_tuple);
+    TEST(test_as_optionals);
+    TEST(test_as_values);
 
     TEST(test_version);
 
