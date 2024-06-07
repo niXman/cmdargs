@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
     
     // 'fname' - std::optional<std::string>
     // 'fsize' - std::optional<std::size_t>
-    const auto [fname, fsize] = cmdargs::parse_args(&emsg, argc, argv, kwords).values();
+    const auto [fname, fsize] = cmdargs::parse_args(&emsg, argc, argv, kwords).optionals(); // or `.values()` can be used
     if ( !emsg.empty() ) {
         std::cout << "cmdline parse error: " << emsg << std::endl;
 
