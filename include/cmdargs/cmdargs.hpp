@@ -2019,20 +2019,6 @@ std::ostream& dump_group(std::ostream &os, const args_pack<Types...> &args) {
 
 /*************************************************************************************************/
 
-#define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
-    const ::cmdargs::option<struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
-        OPTION_NAME{OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
-
-#define CMDARGS_OPTION_ADD_HELP() \
-    const ::cmdargs::details::help_option_type help{"show help message" \
-        , std::make_tuple(optional)}
-
-#define CMDARGS_OPTION_ADD_VERSION(str) \
-    const ::cmdargs::details::version_option_type version{"show version message" \
-        , std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})}
-
-/*************************************************************************************************/
-
 template<typename ...Args>
 bool is_help_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
     if constexpr ( args.template contains<details::help_option_type>() ) {
@@ -2065,6 +2051,20 @@ template<typename ...Args>
 bool is_help_or_version_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
     return is_help_requested(os, argv0, args) || is_version_requested(os, argv0, args);
 }
+
+/*************************************************************************************************/
+
+#define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
+    const ::cmdargs::option<struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
+        OPTION_NAME{OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
+
+#define CMDARGS_OPTION_ADD_HELP() \
+    const ::cmdargs::details::help_option_type help{"show help message" \
+        ,std::make_tuple(optional)}
+
+#define CMDARGS_OPTION_ADD_VERSION(str) \
+    const ::cmdargs::details::version_option_type version{"show version message" \
+        ,std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})}
 
 /*************************************************************************************************/
 
