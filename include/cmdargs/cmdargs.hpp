@@ -818,14 +818,14 @@ struct args_pack;
 
 template<typename ID, typename V>
 struct option final {
-    template<typename ...Args>
-    friend struct args_pack;
-
     using value_type = V;
-private:
     using optional_type  = std::optional<value_type>;
     using validator_type = std::function<bool(std::string_view str)>;
     using converter_type = std::function<bool(value_type &dst, std::string_view str)>;
+
+private:
+    template<typename ...Args>
+    friend struct args_pack;
 
     const std::string_view m_type_name;
     const std::string_view m_description;
@@ -848,7 +848,7 @@ public:
 
     template<typename ...Args>
     option(const char *descr, std::tuple<Args...> as_tuple)
-        :m_type_name{details::type_name<V>()}
+        :m_type_name{details::type_name<value_type>()}
         ,m_description{descr}
         ,m_is_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
         ,m_uses_custom_validator{has_visitor<validator_type>(as_tuple)}
