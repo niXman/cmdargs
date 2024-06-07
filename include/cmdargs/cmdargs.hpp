@@ -1827,7 +1827,7 @@ std::ostream& to_file(std::ostream &os, const args_pack<Args...> &args, bool ini
 }
 
 template<typename ...Args>
-const auto& from_file(std::string *emsg, std::istream &is, args_pack<Args...> &args) {
+auto& from_file(std::string *emsg, std::istream &is, args_pack<Args...> &args) {
     std::vector<std::string> lines;
     for ( std::string line; std::getline(is, line); ) {
         details::trim(line);
