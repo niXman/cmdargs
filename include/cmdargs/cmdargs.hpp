@@ -467,10 +467,17 @@ from_string_impl(T *val, std::string_view str) noexcept {
     *val = (str == "true" || str == "1");
 }
 
+#if defined(__GNUC__) && !defined(__clang__)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#elif defined(__clang__)
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wformat-nonliteral"
+#elif defined(_MSC_VER)
+#endif
+
 template<typename T>
-typename std::enable_if_t<
-    std::is_integral<T>::value && !std::is_same<T, bool>::value
->
+typename std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>
 from_string_impl(T *val, std::string_view str) noexcept {
     constexpr const char *fmt = (
         std::is_unsigned<T>::value
@@ -499,14 +506,6 @@ from_string_impl(T *val, std::string_view str) noexcept {
 }
 
 template<typename T>
-typename std::enable_if_t<std::is_enum<T>::value>
-from_string_impl(T *val, std::string_view str) noexcept {
-    typename std::underlying_type<T>::type tmp{};
-    from_string_impl(&tmp, str);
-    *val = static_cast<T>(tmp);
-}
-
-template<typename T>
 typename std::enable_if_t<std::is_floating_point<T>::value>
 from_string_impl(T *val, std::string_view str) noexcept {
     constexpr const char *fmt = (
@@ -523,6 +522,21 @@ from_string_impl(T *val, std::string_view str) noexcept {
     );
 
     std::sscanf(str.data(), fmtbuf.data(), val);
+}
+
+#if defined(__GNUC__) && !defined(__clang__)
+#   pragma GCC diagnostic pop
+#elif defined(__clang__)
+#   pragma clang diagnostic pop
+#elif defined(_MSC_VER)
+#endif
+
+template<typename T>
+typename std::enable_if_t<std::is_enum<T>::value>
+from_string_impl(T *val, std::string_view str) noexcept {
+    typename std::underlying_type<T>::type tmp{};
+    from_string_impl(&tmp, str);
+    *val = static_cast<T>(tmp);
 }
 
 template<typename T>
