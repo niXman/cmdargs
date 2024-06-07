@@ -1211,8 +1211,16 @@ public:
         :m_kwords{types...}
     {}
 
-    auto values() const {
+    auto optionals() const {
         auto res = std::make_tuple(std::get<Args>(m_kwords).m_value...);
+        return res;
+    }
+    auto values() const {
+        auto res = std::make_tuple(
+            (std::get<Args>(m_kwords).m_value
+                ? std::get<Args>(m_kwords).m_value.value()
+                : typename Args::value_type{})...
+        );
         return res;
     }
 
