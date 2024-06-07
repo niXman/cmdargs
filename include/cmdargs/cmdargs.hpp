@@ -411,7 +411,7 @@ constexpr std::size_t ct_strlen(const char *s) noexcept {
     for ( ; *p; ++p )
         ;
 
-    return p - s;
+    return static_cast<std::size_t>(p - s);
 }
 
 inline std::string cat_vector(
@@ -489,7 +489,11 @@ from_string_impl(T *val, std::string_view str) noexcept {
     );
 
     constexpr auto fmt_len = ct_strlen(fmt) + 1u;
-    const auto fmtbuf = ct_init_array<fmt_len>(fmt, '0' + (str.length() / 10), '0' + (str.length() % 10));
+    const auto fmtbuf = ct_init_array<fmt_len>(
+         fmt
+        ,static_cast<char>('0' + (str.length() / 10))
+        ,static_cast<char>('0' + (str.length() % 10))
+    );
 
     std::sscanf(str.data(), fmtbuf.data(), val);
 }
@@ -512,7 +516,11 @@ from_string_impl(T *val, std::string_view str) noexcept {
     );
 
     constexpr auto fmt_len = ct_strlen(fmt) + 1u;
-    const auto fmtbuf = ct_init_array<fmt_len>(fmt, '0' + (str.length() / 10), '0' + (str.length() % 10));
+    const auto fmtbuf = ct_init_array<fmt_len>(
+         fmt
+        ,static_cast<char>('0' + (str.length() / 10))
+        ,static_cast<char>('0' + (str.length() % 10))
+    );
 
     std::sscanf(str.data(), fmtbuf.data(), val);
 }
