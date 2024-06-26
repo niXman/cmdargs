@@ -478,36 +478,61 @@ from_string_impl(T *val, std::string_view str) noexcept {
 
 template<typename T>
 typename std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>
-from_string_impl(T *val, std::string_view str) noexcept {
-    constexpr const char *fmt = (
-        std::is_unsigned<T>::value
-        ? (std::is_same<T, std::uint8_t>::value
-            ? "%  " SCNu8 : std::is_same<T, std::uint16_t>::value
-                ? "%  " SCNu16 : std::is_same<T, std::uint32_t>::value
-                    ? "%  " SCNu32
-                    : "%  " SCNu64
-        )
-        : (std::is_same<T, std::int8_t>::value
-            ? "%  " SCNi8 : std::is_same<T, std::int16_t>::value
-                ? "%  " SCNi16 : std::is_same<T, std::int32_t>::value
-                    ? "%  " SCNi32
-                    : "%  " SCNi64
-        )
-    );
+from_string_impl(T *val, std::string_view str) {
+    const bool is_hex = (str.size() > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X'));
+    if ( is_hex ) {
+        constexpr const char *fmt = (std::is_same<T, std::uint8_t>::value
+           ? "%  " SCNx8 : std::is_same<T, std::uint16_t>::value
+                 ? "%  " SCNx16 : std::is_same<T, std::uint32_t>::value
+                       ? "%  " SCNx32
+                       : "%  " SCNx64
+        );
 
-    constexpr auto fmt_len = ct_strlen(fmt) + 1u;
-    const auto fmtbuf = ct_init_array<fmt_len>(
-         fmt
-        ,static_cast<char>('0' + (str.length() / 10))
-        ,static_cast<char>('0' + (str.length() % 10))
-    );
+        constexpr auto fmt_len = ct_strlen(fmt) + 1u;
+        const auto fmtbuf = ct_init_array<fmt_len>(
+             fmt
+            ,static_cast<char>('0' + ((str.length()-2) / 10))
+            ,static_cast<char>('0' + ((str.length()-2) % 10))
+        );
 
-    std::sscanf(str.data(), fmtbuf.data(), val);
+        const int ec = std::sscanf(str.data()+2, fmtbuf.data(), val);
+        if ( ec == 0 || ec == EOF ) {
+            throw std::invalid_argument("invalid argument received in cmdargs::details::from_string_impl(), line " __CMDARGS__STRINGIZE(__LINE__));
+        }
+    } else {
+        constexpr const char *fmt = (
+            std::is_unsigned<T>::value
+                ? (std::is_same<T, std::uint8_t>::value
+                       ? "%  " SCNu8 : std::is_same<T, std::uint16_t>::value
+                             ? "%  " SCNu16 : std::is_same<T, std::uint32_t>::value
+                                   ? "%  " SCNu32
+                                   : "%  " SCNu64
+                   )
+                : (std::is_same<T, std::int8_t>::value
+                       ? "%  " SCNi8 : std::is_same<T, std::int16_t>::value
+                             ? "%  " SCNi16 : std::is_same<T, std::int32_t>::value
+                                   ? "%  " SCNi32
+                                   : "%  " SCNi64
+            )
+        );
+
+        constexpr auto fmt_len = ct_strlen(fmt) + 1u;
+        const auto fmtbuf = ct_init_array<fmt_len>(
+             fmt
+            ,static_cast<char>('0' + (str.length() / 10))
+            ,static_cast<char>('0' + (str.length() % 10))
+        );
+
+        const int ec = std::sscanf(str.data(), fmtbuf.data(), val);
+        if ( ec == 0 || ec == EOF ) {
+            throw std::invalid_argument("invalid argument received in cmdargs::details::from_string_impl(), line " __CMDARGS__STRINGIZE(__LINE__));
+        }
+    }
 }
 
 template<typename T>
 typename std::enable_if_t<std::is_floating_point<T>::value>
-from_string_impl(T *val, std::string_view str) noexcept {
+from_string_impl(T *val, std::string_view str) {
     constexpr const char *fmt = (
         std::is_same<T, float>::value
             ? "%  f"
@@ -521,7 +546,10 @@ from_string_impl(T *val, std::string_view str) noexcept {
         ,static_cast<char>('0' + (str.length() % 10))
     );
 
-    std::sscanf(str.data(), fmtbuf.data(), val);
+    const int ec = std::sscanf(str.data(), fmtbuf.data(), val);
+    if ( ec == 0 || ec == EOF ) {
+        throw std::invalid_argument("invalid argument received in cmdargs::details::from_string_impl(), line " __CMDARGS__STRINGIZE(__LINE__));
+    }
 }
 
 #if defined(__GNUC__) && !defined(__clang__)
