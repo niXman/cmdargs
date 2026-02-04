@@ -19,8 +19,8 @@ Only long option names is supported.
 
 // declaring key-words
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name")
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
+    CMDARGS_OPTION(fname, std::string, "source file name")
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional)
 } const kwords;
 
 int main(int argc, char **argv) {
@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
 
 // declaring key-words
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name")
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
+    CMDARGS_OPTION(fname, std::string, "source file name")
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional)
 } const kwords;
 
 int main(int argc, char **argv) {
@@ -73,9 +73,9 @@ int main(int argc, char **argv) {
 
 // declaring key-words
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name")
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
-    CMDARGS_OPTION_ADD(fmode, std::string, "processing mode")
+    CMDARGS_OPTION(fname, std::string, "source file name")
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional)
+    CMDARGS_OPTION(fmode, std::string, "processing mode")
 } const kwords;
 
 int main(int argc, char **argv) {
@@ -98,8 +98,8 @@ int main(int argc, char **argv) {
 ```cpp
 // declaring key-words
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name")
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
+    CMDARGS_OPTION(fname, std::string, "source file name")
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional)
 } const kwords;
 
 int main(int argc, char **argv) {
@@ -124,8 +124,8 @@ int main(int argc, char **argv) {
 
 // declaring key-words
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name")
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
+    CMDARGS_OPTION(fname, std::string, "source file name")
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional)
 } const kwords;
 
 int main(int argc, char **argv) {
@@ -137,8 +137,8 @@ int main(int argc, char **argv) {
 
 // declaring key-words
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name")
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional)
+    CMDARGS_OPTION(fname, std::string, "source file name")
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional)
 } const kwords;
 
 int main(int argc, char **argv) {
