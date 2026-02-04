@@ -32,10 +32,10 @@
 /*************************************************************************************************/
 
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
-    CMDARGS_OPTION_ADD_HELP();
-    CMDARGS_OPTION_ADD_VERSION();
+    CMDARGS_OPTION(fname, std::string, "source file name");
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional);
+    CMDARGS_OPTION_HELP();
+    CMDARGS_OPTION_VERSION();
 } const kwords;
 
 /*************************************************************************************************/

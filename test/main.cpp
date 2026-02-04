@@ -167,8 +167,8 @@ static void test_templates() {
 
 static void test_decl_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size");
+        CMDARGS_OPTION(fname, std::string, "source file name");
+        CMDARGS_OPTION(fsize, std::size_t, "source file size");
     } const kwords;
 
     assert(kwords.fname.is_required() == true);
@@ -190,8 +190,8 @@ static void test_decl_00() {
 
 static void test_decl_01() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size");
+        CMDARGS_OPTION(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION(fsize, std::size_t, "source file size");
     } const kwords;
 
     assert(kwords.fname.is_required() == false);
@@ -211,8 +211,8 @@ static void test_decl_01() {
 
 static void test_decl_02() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
+        CMDARGS_OPTION(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION(fsize, std::size_t, "source file size", optional);
     } const kwords;
 
     assert(kwords.fname.is_required() == false);
@@ -232,8 +232,8 @@ static void test_decl_02() {
 
 static void test_decl_03() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+        CMDARGS_OPTION(fname, std::string, "source file name");
+        CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
     } const kwords;
 
     assert(kwords.fname.is_required() == true);
@@ -253,8 +253,8 @@ static void test_decl_03() {
 
 static void test_decl_04() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", or_(fname));
+        CMDARGS_OPTION(fname, std::string, "source file name");
+        CMDARGS_OPTION(fsize, std::size_t, "source file size", or_(fname));
     } const kwords;
 
     assert(kwords.fname.is_required() == true);
@@ -274,8 +274,8 @@ static void test_decl_04() {
 
 static void test_decl_05() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", not_(fname));
+        CMDARGS_OPTION(fname, std::string, "source file name");
+        CMDARGS_OPTION(fsize, std::size_t, "source file size", not_(fname));
     } const kwords;
 
     assert(kwords.fname.is_required() == true);
@@ -381,9 +381,9 @@ static void test_string_trim() {
 
 static void test_bool_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
-        CMDARGS_OPTION_ADD(report, bool, "report when finished", optional, and_(fname, fsize));
+        CMDARGS_OPTION(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
+        CMDARGS_OPTION(report, bool, "report when finished", optional, and_(fname, fsize));
     } const kwords;
 
     {
@@ -495,9 +495,9 @@ static void test_bool_00() {
 static void test_cond_and_00() {
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
-            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
-            CMDARGS_OPTION_ADD_HELP();
+            CMDARGS_OPTION(fname, std::string, "source file name", optional);
+            CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
+            CMDARGS_OPTION_HELP();
         } const kwords;
 
         #pragma GCC diagnostic push
@@ -524,8 +524,8 @@ static void test_cond_and_00() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+            CMDARGS_OPTION(fname, std::string, "source file name");
+            CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
         } const kwords;
 
         #pragma GCC diagnostic push
@@ -547,13 +547,13 @@ static void test_cond_and_00() {
             );
 
             assert(!emsg.empty());
-            assert(emsg == "there is no required \"--fname\" option was specified");
+            assert(emsg == "no required \"--fname\" option was specified");
         }
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", and_(fname));
+            CMDARGS_OPTION(fname, std::string, "source file name");
+            CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
         } const kwords;
 
         #pragma GCC diagnostic push
@@ -583,9 +583,9 @@ static void test_cond_and_00() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-            CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size");
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", and_(fname, fsize));
+            CMDARGS_OPTION(fname, std::string, "source file name");
+            CMDARGS_OPTION(fsize, std::size_t, "source file size");
+            CMDARGS_OPTION(fmode, std::string, "processing mode", and_(fname, fsize));
         } const kwords;
 
         {
@@ -608,7 +608,7 @@ static void test_cond_and_00() {
             );
 
             assert(!emsg.empty());
-            assert(emsg == "there is no required \"--fname\" option was specified");
+            assert(emsg == "no required \"--fname\" option was specified");
         }
 
         {
@@ -631,7 +631,7 @@ static void test_cond_and_00() {
             );
 
             assert(!emsg.empty());
-            assert(emsg == "there is no required \"--fsize\" option was specified");
+            assert(emsg == "no required \"--fsize\" option was specified");
         }
 
         {
@@ -663,9 +663,9 @@ static void test_cond_and_00() {
 
 static void test_cond_or_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fname, std::string, "source file name", optional);
-        CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(fname, fsize));
+        CMDARGS_OPTION(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION(fsize, std::size_t, "source file size", optional);
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(fname, fsize));
     } const kwords;
 
     {
@@ -760,9 +760,9 @@ static void test_cond_or_00() {
 
 static void test_cond_not_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
     {
@@ -859,9 +859,9 @@ static void test_cond_not_00() {
 
 static void test_default_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
     {
@@ -928,7 +928,7 @@ static void test_default_00() {
 
 static void test_validator_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode"
+        CMDARGS_OPTION(fmode, std::string, "processing mode"
             ,validator_([](std::string_view str) {
                 return str == "read" || str == "write";
             })
@@ -1013,7 +1013,7 @@ static void test_validator_00() {
 static void test_converter_00() {
     struct kwords: cmdargs::kwords_group {
         enum e_mode { undefined, read, write };
-        CMDARGS_OPTION_ADD(fmode, e_mode, "processing mode"
+        CMDARGS_OPTION(fmode, e_mode, "processing mode"
             ,converter_([](e_mode &mode, std::string_view str) {
                 if ( str == "read" ) {
                     mode = e_mode::read;
@@ -1105,17 +1105,17 @@ static void test_converter_00() {
 
 static void test_default_value_v2() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name"
+        CMDARGS_OPTION(netsrc, std::string, "network source name"
             ,optional
             ,not_(filesrc)
             ,default_<std::string>("127.0.0.1")
         );
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name"
+        CMDARGS_OPTION(filesrc, std::string, "file source name"
             ,optional
             ,not_(netsrc)
             ,default_<std::string>("data.txt")
         );
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
     {
@@ -1158,9 +1158,9 @@ static void test_default_value_v2() {
 
 static void test_to_file_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
     {
@@ -1235,9 +1235,9 @@ fmode=read
 
 static void test_from_file_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
     {
@@ -1298,9 +1298,9 @@ fmode=read
 
 static void test_show_help_and_version_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
     {
@@ -1354,11 +1354,11 @@ R"(test:
     // help
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-            CMDARGS_OPTION_ADD_HELP();
-            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_HELP();
+            CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1395,11 +1395,11 @@ R"(cmdargs-test:
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-            CMDARGS_OPTION_ADD_HELP();
-            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_HELP();
+            CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1430,11 +1430,11 @@ R"(cmdargs-test:
     // version
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-            CMDARGS_OPTION_ADD_HELP();
-            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_HELP();
+            CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1465,11 +1465,11 @@ R"(cmdargs-test:
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-            CMDARGS_OPTION_ADD_HELP();
-            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_HELP();
+            CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1507,11 +1507,11 @@ R"(cmdargs-test: version - 0.0.1
     // help or version
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-            CMDARGS_OPTION_ADD_HELP();
-            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_HELP();
+            CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1539,11 +1539,11 @@ R"(cmdargs-test: version - 0.0.1
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-            CMDARGS_OPTION_ADD_HELP();
-            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_HELP();
+            CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1581,11 +1581,11 @@ R"(cmdargs-test:
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source size", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-            CMDARGS_OPTION_ADD_HELP();
-            CMDARGS_OPTION_ADD_VERSION("0.0.1");
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION_HELP();
+            CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1623,11 +1623,11 @@ R"(cmdargs-test: version - 0.0.1
 static void test_predefined_converters() {
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION_ADD(fileslist, std::vector<std::string>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(fileslist, std::vector<std::string>, "source files list", optional, not_(netsrc)
                 ,convert_as_vector<std::string>()
             );
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1661,11 +1661,11 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION_ADD(fileslist, std::vector<std::size_t>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(fileslist, std::vector<std::size_t>, "source files list", optional, not_(netsrc)
                 ,convert_as_vector<std::size_t>()
             );
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1699,11 +1699,11 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION_ADD(fileslist, std::list<std::string>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(fileslist, std::list<std::string>, "source files list", optional, not_(netsrc)
                 ,convert_as_list<std::string>()
             );
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1737,11 +1737,11 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION_ADD(fileslist, std::set<std::string>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(fileslist, std::set<std::string>, "source files list", optional, not_(netsrc)
                                ,convert_as_set<std::string>()
                                );
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1775,12 +1775,12 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
             using map_type = std::map<std::string, std::string>;
-            CMDARGS_OPTION_ADD(fileslist, map_type, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_(netsrc)
                 ,convert_as_map<map_type::key_type, map_type::mapped_type>()
             );
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1814,12 +1814,12 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
             using map_type = std::map<std::size_t, std::string>;
-            CMDARGS_OPTION_ADD(fileslist, map_type, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_(netsrc)
                 ,convert_as_map<map_type::key_type, map_type::mapped_type>()
             );
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1853,12 +1853,12 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
             using map_type = std::map<std::size_t, std::size_t>;
-            CMDARGS_OPTION_ADD(fileslist, map_type, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_(netsrc)
                 ,convert_as_map<map_type::key_type, map_type::mapped_type>()
             );
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, fileslist));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -1896,9 +1896,9 @@ static void test_predefined_converters() {
 
 static void test_as_optionals() {
     struct kwords: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
 #pragma GCC diagnostic push
@@ -1937,9 +1937,9 @@ static void test_as_optionals() {
 
 static void test_as_values() {
     struct kwords: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
-        CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
 #pragma GCC diagnostic push
@@ -1999,9 +1999,9 @@ static void test_version() {
 static void test_dump() {
     {
         struct kwords: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
         } const kwords;
 
         std::stringstream ss;
@@ -2047,9 +2047,9 @@ relation     NOT: 0
     }
     {
         struct kwords: cmdargs::kwords_group {
-            CMDARGS_OPTION_ADD(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION_ADD(filesrc, std::string, "file source name", optional, not_(netsrc));
-            CMDARGS_OPTION_ADD(fmode, std::string, "processing mode", or_(netsrc, filesrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
+            CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+            CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
         } const kwords;
 
 #pragma GCC diagnostic push
@@ -2117,38 +2117,38 @@ relation     NOT: 0
 #ifdef TEST_MAX_OPTIONS
 static void test_max_options() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION_ADD(opt0 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt1 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt2 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt3 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt4 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt5 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt6 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt7 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt8 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt9 , std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt10, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt11, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt12, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt13, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt14, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt15, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt16, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt17, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt18, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt19, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt20, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt21, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt22, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt23, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt24, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt25, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt26, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt27, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt28, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt29, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt30, std::size_t, "test option", optional);
-        CMDARGS_OPTION_ADD(opt31, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt0 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt1 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt2 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt3 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt4 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt5 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt6 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt7 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt8 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt9 , std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt10, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt11, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt12, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt13, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt14, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt15, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt16, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt17, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt18, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt19, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt20, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt21, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt22, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt23, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt24, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt25, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt26, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt27, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt28, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt29, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt30, std::size_t, "test option", optional);
+        CMDARGS_OPTION(opt31, std::size_t, "test option", optional);
     } const kwords;
 
 #pragma GCC diagnostic push

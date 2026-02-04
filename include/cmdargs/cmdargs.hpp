@@ -1235,17 +1235,16 @@ private:
 
 public:
     template<typename ...Types>
-    explicit args_pack(const Types &...types)
-        :m_kwords{types...}
+    explicit args_pack(Types && ...types)
+        :m_kwords{std::forward<Types>(types)...}
     {}
 
     auto optionals() const {
-        auto res = std::make_tuple(std::get<Args>(m_kwords).m_value...);
-        return res;
+        return std::make_tuple(std::get<Args>(m_kwords).m_value...);
     }
     auto values() const {
         auto res = std::make_tuple(
-            (std::get<Args>(m_kwords).m_value
+            (std::get<Args>(m_kwords).m_value.has_value()
                 ? std::get<Args>(m_kwords).m_value.value()
                 : typename Args::value_type{})...
         );
@@ -1280,10 +1279,6 @@ public:
         static_assert(contains<T>(), "");
 
         return std::get<T>(m_kwords).has_default();
-    }
-
-    bool is_valid_name(const char *name) const {
-        return check_for_unexpected(name) == nullptr;
     }
 
     bool is_bool_type(const std::string_view name) const {
@@ -1708,7 +1703,7 @@ void parse_kv_list(
 
     auto required = args.check_for_required();
     if ( !required.empty() ) {
-        std::string msg = "there is no required \"";
+        std::string msg = "no required \"";
         msg += (pref ? pref : "");
         msg += required;
         msg += "\" option was specified";
@@ -1826,6 +1821,15 @@ auto parse_args(std::string *emsg, int argc, char* const* argv, const KWords &kw
     auto res = parse_args(emsg, argc, argv, tuple);
 
     return res;
+}
+
+/*************************************************************************************************/
+
+template<typename ...Args>
+auto make_args(Args && ...args) {
+    cmdargs::args_pack<typename std::decay<Args>::type...> set{std::forward<Args>(args)...};
+
+    return set;
 }
 
 /*************************************************************************************************/
@@ -2082,15 +2086,15 @@ bool is_help_or_version_requested(std::ostream &os, const char *argv0, const arg
 
 /*************************************************************************************************/
 
-#define CMDARGS_OPTION_ADD(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
+#define CMDARGS_OPTION(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
     const ::cmdargs::option<struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
         OPTION_NAME{OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
-#define CMDARGS_OPTION_ADD_HELP() \
+#define CMDARGS_OPTION_HELP() \
     const ::cmdargs::details::help_option_type help{"show help message" \
         ,std::make_tuple(optional)}
 
-#define CMDARGS_OPTION_ADD_VERSION(str) \
+#define CMDARGS_OPTION_VERSION(str) \
     const ::cmdargs::details::version_option_type version{"show version message" \
         ,std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})}
 

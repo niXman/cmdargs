@@ -38,9 +38,9 @@ std::ostream& operator<< (std::ostream &os, e_mode mode) {
 }
 
 struct: cmdargs::kwords_group {
-    CMDARGS_OPTION_ADD(fname, std::string, "source file name");
-    CMDARGS_OPTION_ADD(fsize, std::size_t, "source file size", optional);
-    CMDARGS_OPTION_ADD(fmode, e_mode     , "source file mode", optional
+    CMDARGS_OPTION(fname, std::string, "source file name");
+    CMDARGS_OPTION(fsize, std::size_t, "source file size", optional);
+    CMDARGS_OPTION(fmode, e_mode     , "source file mode", optional
         ,validator_([](const std::string_view str){
             return str == "read" || str == "write";
         })
@@ -50,18 +50,18 @@ struct: cmdargs::kwords_group {
         })
     );
 
-    CMDARGS_OPTION_ADD(dst_ip, std::string, "the destination IP address", optional);
-    CMDARGS_OPTION_ADD(dst_port, std::uint16_t, "the destination port number", optional);
-    CMDARGS_OPTION_ADD(retransmit, bool, "retransmit the file over network?", optional, and_(dst_ip, dst_port));
+    CMDARGS_OPTION(dst_ip, std::string, "the destination IP address", optional);
+    CMDARGS_OPTION(dst_port, std::uint16_t, "the destination port number", optional);
+    CMDARGS_OPTION(retransmit, bool, "retransmit the file over network?", optional, and_(dst_ip, dst_port));
 
-    CMDARGS_OPTION_ADD_HELP();
-    CMDARGS_OPTION_ADD_VERSION("0.0.1");
+    CMDARGS_OPTION_HELP();
+    CMDARGS_OPTION_VERSION("0.0.1");
 } const kwords;
 
 int main(int argc, char *const *argv) {
     std::string error_message;
     const auto [fname, fsize, fmode, dst_ip, dst_port, retransmit, help_req, version_req]
-        = cmdargs::parse_args(&error_message, argc, argv, kwords).values();
+        = cmdargs::parse_args(&error_message, argc, argv, kwords).optionals();
     if ( !error_message.empty() ) {
         std::cerr << "command line parse error: " << error_message << std::endl;
 
