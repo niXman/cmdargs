@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 // MIT License
 //
-// Copyright (c) 2021-2024 niXman (github dot nixman at pm dot me)
+// Copyright (c) 2021-2026 niXman (github dot nixman at pm dot me)
 // This file is part of CmdArgs(github.com/niXman/cmdargs) project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,9 +39,9 @@
 // CMDARGS_VERSION_HEX >> 16 - is the minor version
 // CMDARGS_VERSION_HEX >> 8  - is the bugfix level
 
-#define CMDARGS_VERSION_MAJOR 0
-#define CMDARGS_VERSION_MINOR 1
-#define CMDARGS_VERSION_BUGFIX 1
+#define CMDARGS_VERSION_MAJOR 1
+#define CMDARGS_VERSION_MINOR 0
+#define CMDARGS_VERSION_BUGFIX 0
 
 #define CMDARGS_VERSION_HEX \
     static_cast<std::uint32_t>((CMDARGS_VERSION_MAJOR << 24) \
