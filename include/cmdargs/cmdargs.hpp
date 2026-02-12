@@ -367,7 +367,7 @@ auto to_tuple_impl(const T &, std::integral_constant<std::size_t, N>) noexcept {
 
 template<
      typename T
-    ,typename = std::enable_if_t<std::is_class<T>::value>
+    ,typename = std::enable_if_t<std::is_class_v<T>>
     ,typename S = to_tuple_size<std::decay_t<T>>
 >
 auto to_tuple(const T &kw) noexcept {
@@ -450,19 +450,19 @@ constexpr auto ct_init_array(const char *s, char c0, char c1) noexcept {
 }
 
 template<typename T>
-typename std::enable_if_t<std::is_same<T, std::string>::value>
+typename std::enable_if_t<std::is_same_v<T, std::string>>
 from_string_impl(T *val, std::string_view str) noexcept {
     *val = str;
 }
 
 template<typename T>
-typename std::enable_if_t<std::is_same<T, std::string_view>::value>
+typename std::enable_if_t<std::is_same_v<T, std::string_view>>
 from_string_impl(T *val, std::string_view str) noexcept {
     *val = str;
 }
 
 template<typename T>
-typename std::enable_if_t<std::is_same<T, bool>::value>
+typename std::enable_if_t<std::is_same_v<T, bool>>
 from_string_impl(T *val, std::string_view str) noexcept {
     *val = (str == "true" || str == "1");
 }
@@ -481,11 +481,11 @@ typename std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>
 from_string_impl(T *val, std::string_view str) {
     const bool is_hex = (str.size() > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X'));
     if ( is_hex ) {
-        constexpr const char *fmt = (std::is_same<T, std::uint8_t>::value
-           ? "%  " SCNx8 : std::is_same<T, std::uint16_t>::value
-                 ? "%  " SCNx16 : std::is_same<T, std::uint32_t>::value
-                       ? "%  " SCNx32
-                       : "%  " SCNx64
+        constexpr const char *fmt = (std::is_same_v<T, std::uint8_t>
+            ? "%  " SCNx8 : std::is_same_v<T, std::uint16_t>
+                ? "%  " SCNx16 : std::is_same_v<T, std::uint32_t>
+                    ? "%  " SCNx32
+                    : "%  " SCNx64
         );
 
         constexpr auto fmt_len = ct_strlen(fmt) + 1u;
@@ -497,22 +497,25 @@ from_string_impl(T *val, std::string_view str) {
 
         const int ec = std::sscanf(str.data()+2, fmtbuf.data(), val);
         if ( ec == 0 || ec == EOF ) {
-            throw std::invalid_argument("invalid argument received in cmdargs::details::from_string_impl(), line " __CMDARGS__STRINGIZE(__LINE__));
+            throw std::invalid_argument(
+                "invalid argument received in cmdargs::details::from_string_impl(), line "
+                __CMDARGS__STRINGIZE(__LINE__)
+            );
         }
     } else {
         constexpr const char *fmt = (
-            std::is_unsigned<T>::value
-                ? (std::is_same<T, std::uint8_t>::value
-                       ? "%  " SCNu8 : std::is_same<T, std::uint16_t>::value
-                             ? "%  " SCNu16 : std::is_same<T, std::uint32_t>::value
-                                   ? "%  " SCNu32
-                                   : "%  " SCNu64
+            std::is_unsigned_v<T>
+                ? (std::is_same_v<T, std::uint8_t>
+                    ? "%  " SCNu8 : std::is_same_v<T, std::uint16_t>
+                        ? "%  " SCNu16 : std::is_same_v<T, std::uint32_t>
+                            ? "%  " SCNu32
+                            : "%  " SCNu64
                    )
-                : (std::is_same<T, std::int8_t>::value
-                       ? "%  " SCNi8 : std::is_same<T, std::int16_t>::value
-                             ? "%  " SCNi16 : std::is_same<T, std::int32_t>::value
-                                   ? "%  " SCNi32
-                                   : "%  " SCNi64
+                : (std::is_same_v<T, std::int8_t>
+                    ? "%  " SCNi8 : std::is_same_v<T, std::int16_t>
+                        ? "%  " SCNi16 : std::is_same_v<T, std::int32_t>
+                            ? "%  " SCNi32
+                            : "%  " SCNi64
             )
         );
 
@@ -525,16 +528,19 @@ from_string_impl(T *val, std::string_view str) {
 
         const int ec = std::sscanf(str.data(), fmtbuf.data(), val);
         if ( ec == 0 || ec == EOF ) {
-            throw std::invalid_argument("invalid argument received in cmdargs::details::from_string_impl(), line " __CMDARGS__STRINGIZE(__LINE__));
+            throw std::invalid_argument(
+                "invalid argument received in cmdargs::details::from_string_impl(), line "
+                __CMDARGS__STRINGIZE(__LINE__)
+            );
         }
     }
 }
 
 template<typename T>
-typename std::enable_if_t<std::is_floating_point<T>::value>
+typename std::enable_if_t<std::is_floating_point_v<T>>
 from_string_impl(T *val, std::string_view str) {
     constexpr const char *fmt = (
-        std::is_same<T, float>::value
+        std::is_same_v<T, float>
             ? "%  f"
             : "%  lf"
     );
@@ -548,7 +554,10 @@ from_string_impl(T *val, std::string_view str) {
 
     const int ec = std::sscanf(str.data(), fmtbuf.data(), val);
     if ( ec == 0 || ec == EOF ) {
-        throw std::invalid_argument("invalid argument received in cmdargs::details::from_string_impl(), line " __CMDARGS__STRINGIZE(__LINE__));
+        throw std::invalid_argument(
+            "invalid argument received in cmdargs::details::from_string_impl(), line "
+            __CMDARGS__STRINGIZE(__LINE__)
+        );
     }
 }
 
@@ -560,7 +569,7 @@ from_string_impl(T *val, std::string_view str) {
 #endif
 
 template<typename T>
-typename std::enable_if_t<std::is_enum<T>::value>
+typename std::enable_if_t<std::is_enum_v<T>>
 from_string_impl(T *val, std::string_view str) noexcept {
     typename std::underlying_type<T>::type tmp{};
     from_string_impl(&tmp, str);
@@ -568,7 +577,7 @@ from_string_impl(T *val, std::string_view str) noexcept {
 }
 
 template<typename T>
-typename std::enable_if_t<std::is_pointer<T>::value>
+typename std::enable_if_t<std::is_pointer_v<T>>
 from_string_impl(T *val, std::string_view /*str*/) noexcept {
     *val = nullptr;
 }
@@ -608,11 +617,11 @@ template<
     ,typename... InCdr
 >
 struct filter<Pred, std::tuple<Out...>, std::tuple<InCar, InCdr...>> {
-    using type = typename std::conditional<
+    using type = typename std::conditional_t<
          contains<Pred, InCar, Out...>::value
         ,filter<Pred, std::tuple<Out...>, std::tuple<InCdr...>>
         ,filter<Pred, std::tuple<Out..., InCar>, std::tuple<InCdr...>>
-    >::type::type;
+    >::type;
 };
 
 template<
@@ -647,7 +656,7 @@ struct is_callable<
      F
     ,void_t<
         has_operator_call_t<
-            typename std::decay<F>::type
+            typename std::decay_t<F>
         >
     >
 >: std::true_type
@@ -797,11 +806,11 @@ template<
     ,typename ...Rest
 >
 struct get_relation_list<Pred, T, Rest...> {
-    using type = typename std::conditional<
+    using type = typename std::conditional_t<
          Pred<char, T>::value
         ,type_identity<T>
         ,get_relation_list<Pred, Rest...>
-    >::type::type;
+    >::type;
 };
 
 template<
@@ -912,7 +921,7 @@ public:
     bool is_set() const noexcept { return m_value.has_value(); }
     const auto& get_value() const noexcept { return m_value.value(); }
     void set_value(value_type v) { m_value = std::move(v); }
-    bool is_bool() const noexcept { return std::is_same<value_type, bool>::value; }
+    bool is_bool() const noexcept { return std::is_same_v<value_type, bool>; }
 
     const auto& and_list() const noexcept { return m_relation_and; }
     const auto& or_list () const noexcept { return m_relation_or;  }
@@ -931,22 +940,33 @@ public:
     }
 
     std::ostream& dump(std::ostream &os) const {
+        const auto flags = os.flags();
         os
+            << std::boolalpha
             << "name            : " << name() << std::endl
             << "type            : " << m_type_name << std::endl
             << "description     : " << '"' << m_description << '"' << std::endl
-            << "is required     : " << (m_is_required ? "true" : "false") << std::endl
+            << "is required     : " << m_is_required << std::endl
             << "value           : "
         ;
         if ( m_value.has_value() ) {
             os << m_value.value();
         } else {
-            os << "<UNINITIALIZED>";
+            if ( m_default_value.has_value() ) {
+                os
+                    << m_default_value.value()
+                    << " (D)"
+                ;
+            } else {
+                os << "<UNINITIALIZED>";
+            }
         }
-        os  << std::endl
-            << "custom validator: " << (uses_custom_validator() ? "true" : "false") << std::endl
-            << "custom converter: " << (uses_custom_converter() ? "true" : "false") << std::endl
-            << "relation     AND: " << m_relation_and.size();
+        os
+            << std::endl
+            << "custom validator: " << uses_custom_validator() << std::endl
+            << "custom converter: " << uses_custom_converter() << std::endl
+            << "relation     AND: " << m_relation_and.size()
+        ;
         if ( m_relation_and.size() )
         { os << " (" << details::cat_vector("--", m_relation_and) << ")" << std::endl; }
         else { os << std::endl; }
@@ -958,6 +978,8 @@ public:
         if ( m_relation_not.size() )
         { os << " (" << details::cat_vector("--", m_relation_not) << ")" << std::endl; }
         else { os << std::endl; }
+
+        os.flags(flags);
 
         return os;
     }
@@ -1161,7 +1183,7 @@ struct kwords_group {
     static auto validator_(F &&f) noexcept {
         static_assert(details::is_callable<F>::value);
         using signature = typename details::callable_traits<F>::signature;
-        static_assert(std::is_same<signature, bool(const std::string_view str)>::value);
+        static_assert(std::is_same_v<signature, bool(const std::string_view str)>);
         return std::function<signature>{std::forward<F>(f)};
     }
     template<typename F>
@@ -1209,7 +1231,7 @@ struct kwords_group {
 private:
     template<details::e_relation_type R, typename ...Types>
     static auto get_relations(const Types &...args) noexcept {
-        using tuple_type = std::tuple<typename std::decay<Types>::type...>;
+        using tuple_type = std::tuple<typename std::decay_t<Types>...>;
         static_assert(
             std::tuple_size<tuple_type>::value
                 == std::tuple_size<details::without_duplicates<std::is_same, tuple_type>>::value
@@ -1239,7 +1261,16 @@ public:
         :m_kwords{std::forward<Types>(types)...}
     {}
 
-    auto optionals() const {
+    constexpr std::size_t size() const noexcept { return sizeof...(Args); }
+
+    template<typename T>
+    static constexpr bool contains(const T &) noexcept
+    { return details::contains<std::is_same, T, Args...>::value; }
+    template<typename T>
+    static constexpr bool contains() noexcept
+    { return details::contains<std::is_same, T, Args...>::value; }
+
+    auto optionals() const noexcept {
         return std::make_tuple(std::get<Args>(m_kwords).m_value...);
     }
     auto values() const {
@@ -1250,15 +1281,6 @@ public:
         );
         return res;
     }
-
-    constexpr std::size_t size() const { return sizeof...(Args); }
-
-    template<typename T>
-    static constexpr bool contains(const T &)
-    { return details::contains<std::is_same, T, Args...>::value; }
-    template<typename T>
-    static constexpr bool contains()
-    { return details::contains<std::is_same, T, Args...>::value; }
 
     template<typename T>
     bool is_set() const {
@@ -1781,18 +1803,18 @@ void parse_kv_list(
 
 template<
      typename ...Args
-    ,typename = typename std::enable_if<
+    ,typename = typename std::enable_if_t<
         sizeof...(Args) != 1
-            && !std::is_base_of<
+            && !std::is_base_of_v<
                  kwords_group
                 ,typename std::tuple_element<0, std::tuple<Args...>>::type
-        >::value
-    >::type
+        >
+    >
 >
 auto parse_args(std::string *emsg, int argc, char* const* argv, const Args & ...kwords) {
     char *const *beg = argv+1;
     char *const *end = argv+argc;
-    args_pack<typename std::decay<Args>::type...> set{kwords...};
+    args_pack<typename std::decay_t<Args>...> set{kwords...};
     parse_kv_list(emsg, "--", 2, beg, end, set);
 
     return set;
@@ -1802,7 +1824,7 @@ template<typename ...Args>
 auto parse_args(std::string *emsg, int argc, char* const* argv, const std::tuple<Args...> &kwords) {
     char *const *beg = argv+1;
     char *const *end = argv+argc;
-    args_pack<typename std::decay<Args>::type...> set{std::get<Args>(kwords)...};
+    args_pack<typename std::decay_t<Args>...> set{std::get<Args>(kwords)...};
     parse_kv_list(emsg, "--", 2, beg, end, set);
 
     return set;
@@ -1810,10 +1832,10 @@ auto parse_args(std::string *emsg, int argc, char* const* argv, const std::tuple
 
 template<
      typename KWords
-    ,typename = typename std::enable_if<
-        std::is_class<KWords>::value &&
-        std::is_base_of<kwords_group, KWords>::value
-    >::type
+    ,typename = typename std::enable_if_t<
+        std::is_class_v<KWords> &&
+        std::is_base_of_v<kwords_group, KWords>
+    >
 >
 auto parse_args(std::string *emsg, int argc, char* const* argv, const KWords &kw) {
     const auto &tuple = details::to_tuple(kw);
@@ -1827,7 +1849,7 @@ auto parse_args(std::string *emsg, int argc, char* const* argv, const KWords &kw
 
 template<typename ...Args>
 auto make_args(Args && ...args) {
-    cmdargs::args_pack<typename std::decay<Args>::type...> set{std::forward<Args>(args)...};
+    cmdargs::args_pack<typename std::decay_t<Args>...> set{std::forward<Args>(args)...};
 
     return set;
 }
@@ -1836,16 +1858,25 @@ auto make_args(Args && ...args) {
 
 template<typename ...Args>
 std::ostream& to_file(std::ostream &os, const args_pack<Args...> &args, bool inited_only = true) {
+    const auto flags = os.flags();
+    os << std::boolalpha;
+
     args.for_each(
         [&os](const auto &item) {
             os << "# " << item.description() << std::endl;
             os << item.name() << "=";
-            if ( item.is_set() ) {
-                using decayed = typename std::decay<decltype(item)>::type;
+            bool is_set = item.is_set();
+            bool has_default = item.has_default();
+            if ( is_set || has_default ) {
+                const auto &value = (!is_set) ? item.get_default_value() : item.get_value();
+                using decayed = typename std::decay_t<decltype(item)>;
                 if constexpr ( std::is_same_v<typename decayed::value_type, bool> ) {
-                    os << (item.get_value() ? "true" : "false");
+                    os << value ? "true" : "false";
                 } else {
-                    os << item.get_value();
+                    os << value;
+                }
+                if ( !is_set ) {
+                    os << " (D)";
                 }
             }
             os << std::endl;
@@ -1854,6 +1885,8 @@ std::ostream& to_file(std::ostream &os, const args_pack<Args...> &args, bool ini
         }
         ,inited_only
     );
+
+    os.flags(flags);
 
     return os;
 }
@@ -1886,16 +1919,15 @@ auto& from_file(std::string *emsg, std::istream &is, args_pack<Args...> &args) {
 
 template<
      typename ...Args
-    ,typename = typename std::enable_if<
-        sizeof...(Args) != 1
-            && !std::is_base_of<
-                kwords_group
-                ,typename std::tuple_element<0, std::tuple<Args...>>::type
-        >::value
-    >::type
+    ,typename = typename std::enable_if_t<
+        sizeof...(Args) != 1 && !std::is_base_of_v<
+             kwords_group
+            ,typename std::tuple_element<0, std::tuple<Args...>>::type
+        >
+    >
 >
 auto from_file(std::string *emsg, std::istream &is, const Args & ...kwords) {
-    args_pack<typename std::decay<Args>::type...> args{kwords...};
+    args_pack<typename std::decay_t<Args>...> args{kwords...};
     from_file(emsg, is, args);
 
     return args;
@@ -1903,7 +1935,7 @@ auto from_file(std::string *emsg, std::istream &is, const Args & ...kwords) {
 
 template<typename ...Args>
 auto from_file(std::string *emsg, std::istream &is, const std::tuple<Args...> &kwords) {
-    args_pack<typename std::decay<Args>::type...> args{std::get<Args>(kwords)...};
+    args_pack<typename std::decay_t<Args>...> args{std::get<Args>(kwords)...};
     from_file(emsg, is, args);
 
     return args;
@@ -1911,10 +1943,10 @@ auto from_file(std::string *emsg, std::istream &is, const std::tuple<Args...> &k
 
 template<
      typename KWords
-    ,typename = typename std::enable_if<
-        std::is_class<KWords>::value &&
-        std::is_base_of<kwords_group, KWords>::value
-    >::type
+    ,typename = typename std::enable_if_t<
+        std::is_class_v<KWords> &&
+        std::is_base_of_v<kwords_group, KWords>
+    >
 >
 auto from_file(std::string *emsg, std::istream &is, const KWords &kw) {
     const auto &tuple = details::to_tuple(kw);
@@ -1997,17 +2029,17 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args_pack<Arg
 
 template<typename ...Args>
 std::ostream& show_help(std::ostream &os, const char *argv0, const std::tuple<Args...> &kwords) {
-    args_pack<typename std::decay<Args>::type...> args{std::get<Args>(kwords)...};
+    args_pack<typename std::decay_t<Args>...> args{std::get<Args>(kwords)...};
 
     return show_help(os, argv0, args);
 }
 
 template<
      typename KWords
-    ,typename = typename std::enable_if<
-        std::is_class<KWords>::value &&
-        std::is_base_of<kwords_group, KWords>::value
-    >::type
+    ,typename = typename std::enable_if_t<
+        std::is_class_v<KWords> &&
+        std::is_base_of_v<kwords_group, KWords>
+    >
 >
 std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
     const auto &tuple = details::to_tuple(kw);
@@ -2020,10 +2052,10 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
 
 template<
      typename KWords
-    ,typename = typename std::enable_if<
-        std::is_class<KWords>::value &&
-        std::is_base_of<kwords_group, KWords>::value
-    >::type
+    ,typename = typename std::enable_if_t<
+        std::is_class_v<KWords> &&
+        std::is_base_of_v<kwords_group, KWords>
+    >
 >
 std::ostream& dump_group(std::ostream &os, const KWords &kw) {
     const auto &tuple = details::to_tuple(kw);
