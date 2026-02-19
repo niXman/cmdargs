@@ -63,7 +63,7 @@
 
 #include <ostream>
 #include <istream>
-#include <sstream>
+#include <charconv>
 #include <vector>
 #include <list>
 #include <set>
@@ -73,17 +73,41 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <functional>
-#include <stdexcept>
+#include <exception>
 #include <optional>
 #include <utility>
 
-#include <cinttypes>
+#include <cstdint>
+
+namespace cmdargs {
 
 /*************************************************************************************************/
 
-namespace cmdargs {
+struct invalid_argument: std::exception {
+    invalid_argument(const invalid_argument &) = default;
+    invalid_argument& operator= (const invalid_argument &) = default;
+    invalid_argument(invalid_argument &&) = default;
+    invalid_argument& operator= (invalid_argument &&) = default;
+
+    invalid_argument(std::string msg)
+        :m_msg{std::move(msg)}
+    {}
+    virtual ~invalid_argument() = default;
+    virtual const char* what() const noexcept { return m_msg.c_str(); }
+
+private:
+    std::string m_msg;
+};
+
+/*************************************************************************************************/
+
 namespace details {
+
+#ifdef _WIN32
+constexpr char path_separator = '\\';
+#else
+constexpr char path_separator = '/';
+#endif // _WIN32
 
 /*************************************************************************************************/
 // type name
@@ -202,162 +226,162 @@ auto to_tuple_impl(const T &, std::integral_constant<std::size_t, 0>) noexcept {
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 1>) noexcept {
     const auto& [p0] = object;
-    return std::make_tuple(p0);
+    return std::tie(p0);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 2>) noexcept {
     const auto& [p0, p1] = object;
-    return std::make_tuple(p0, p1);
+    return std::tie(p0, p1);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 3>) noexcept {
     const auto& [p0, p1, p2] = object;
-    return std::make_tuple(p0, p1, p2);
+    return std::tie(p0, p1, p2);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 4>) noexcept {
     const auto& [p0, p1, p2, p3] = object;
-    return std::make_tuple(p0, p1, p2, p3);
+    return std::tie(p0, p1, p2, p3);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 5>) noexcept {
     const auto& [p0, p1, p2, p3, p4] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4);
+    return std::tie(p0, p1, p2, p3, p4);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 6>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5);
+    return std::tie(p0, p1, p2, p3, p4, p5);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 7>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 8>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 9>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 10>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 11>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 12>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 13>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 14>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 15>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 16>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 17>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 18>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 19>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 20>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 21>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 22>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 23>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 24>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 25>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 26>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 27>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 28>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 29>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 30>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 31>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30);
 }
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 32>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31] = object;
-    return std::make_tuple(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31);
+    return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31);
 }
 
 template<typename T, std::size_t N>
@@ -406,14 +430,6 @@ inline bool split(Sequence<T, A> &result, std::string_view str, char delim) {
     return !result.empty();
 }
 
-constexpr std::size_t ct_strlen(const char *s) noexcept {
-    const char *p = s;
-    for ( ; *p; ++p )
-        ;
-
-    return static_cast<std::size_t>(p - s);
-}
-
 inline std::string cat_vector(
      const char *pref
     ,const std::vector<std::string_view> &names
@@ -437,149 +453,42 @@ inline std::string cat_vector(
     return res;
 }
 
-template<std::size_t N>
-constexpr auto ct_init_array(const char *s, char c0, char c1) noexcept {
-    std::array<char, N> res{};
-    for ( auto i = 0u; *s; ++s, ++i ) {
-        res[i] = *s;
-    }
-    res[1] = c0;
-    res[2] = c1;
-
-    return res;
-}
-
 template<typename T>
-typename std::enable_if_t<std::is_same_v<T, std::string>>
-from_string_impl(T *val, std::string_view str) noexcept {
-    *val = str;
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_same_v<T, std::string_view>>
-from_string_impl(T *val, std::string_view str) noexcept {
-    *val = str;
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_same_v<T, bool>>
-from_string_impl(T *val, std::string_view str) noexcept {
-    *val = (str == "true" || str == "1");
-}
-
-#if defined(__GNUC__) && !defined(__clang__)
-#   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Wformat-nonliteral"
-#elif defined(__clang__)
-#   pragma clang diagnostic push
-#   pragma clang diagnostic ignored "-Wformat-nonliteral"
-#elif defined(_MSC_VER)
-#endif
-
-template<typename T>
-typename std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>
-from_string_impl(T *val, std::string_view str) {
-    const bool is_hex = (str.size() > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X'));
-    if ( is_hex ) {
-        constexpr const char *fmt = (std::is_same_v<T, std::uint8_t>
-            ? "%  " SCNx8 : std::is_same_v<T, std::uint16_t>
-                ? "%  " SCNx16 : std::is_same_v<T, std::uint32_t>
-                    ? "%  " SCNx32
-                    : "%  " SCNx64
-        );
-
-        constexpr auto fmt_len = ct_strlen(fmt) + 1u;
-        const auto fmtbuf = ct_init_array<fmt_len>(
-             fmt
-            ,static_cast<char>('0' + ((str.length()-2) / 10))
-            ,static_cast<char>('0' + ((str.length()-2) % 10))
-        );
-
-        const int ec = std::sscanf(str.data()+2, fmtbuf.data(), val);
-        if ( ec == 0 || ec == EOF ) {
-            throw std::invalid_argument(
+void from_string_impl(T *val, std::string_view str) {
+    if constexpr ( std::is_same_v<T, std::string> ) {
+        *val = str;
+    } else if constexpr ( std::is_same_v<T, std::string_view> ) {
+        *val = str;
+    } else if constexpr ( std::is_same_v<T, bool> ) {
+        *val = (str == "true" || str == "1");
+    } else if constexpr ( std::is_integral_v<T> ) {
+        int base = 10;
+        if (str.size() > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
+            base = 16;
+            str.remove_prefix(2);
+        }
+        auto [_, ec] = std::from_chars(str.begin(), str.end(), *val, base);
+        if ( ec != std::errc{} ) {
+            throw invalid_argument(
                 "invalid argument received in cmdargs::details::from_string_impl(), line "
                 __CMDARGS__STRINGIZE(__LINE__)
             );
         }
-    } else {
-        constexpr const char *fmt = (
-            std::is_unsigned_v<T>
-                ? (std::is_same_v<T, std::uint8_t>
-                    ? "%  " SCNu8 : std::is_same_v<T, std::uint16_t>
-                        ? "%  " SCNu16 : std::is_same_v<T, std::uint32_t>
-                            ? "%  " SCNu32
-                            : "%  " SCNu64
-                   )
-                : (std::is_same_v<T, std::int8_t>
-                    ? "%  " SCNi8 : std::is_same_v<T, std::int16_t>
-                        ? "%  " SCNi16 : std::is_same_v<T, std::int32_t>
-                            ? "%  " SCNi32
-                            : "%  " SCNi64
-            )
-        );
-
-        constexpr auto fmt_len = ct_strlen(fmt) + 1u;
-        const auto fmtbuf = ct_init_array<fmt_len>(
-             fmt
-            ,static_cast<char>('0' + (str.length() / 10))
-            ,static_cast<char>('0' + (str.length() % 10))
-        );
-
-        const int ec = std::sscanf(str.data(), fmtbuf.data(), val);
-        if ( ec == 0 || ec == EOF ) {
-            throw std::invalid_argument(
+    } else if constexpr ( std::is_floating_point_v<T> ) {
+        auto [_, ec] = std::from_chars(str.data(), str.data() + str.size(), *val);
+        if ( ec != std::errc{} ) {
+            throw invalid_argument(
                 "invalid argument received in cmdargs::details::from_string_impl(), line "
                 __CMDARGS__STRINGIZE(__LINE__)
             );
         }
+    } else if constexpr ( std::is_enum_v<T> ) {
+        std::underlying_type_t<T> tmp{};
+        from_string_impl(&tmp, str);
+        *val = static_cast<T>(tmp);
+    } else if constexpr ( std::is_pointer_v<T> ) {
+        *val = nullptr;
     }
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_floating_point_v<T>>
-from_string_impl(T *val, std::string_view str) {
-    constexpr const char *fmt = (
-        std::is_same_v<T, float>
-            ? "%  f"
-            : "%  lf"
-    );
-
-    constexpr auto fmt_len = ct_strlen(fmt) + 1u;
-    const auto fmtbuf = ct_init_array<fmt_len>(
-         fmt
-        ,static_cast<char>('0' + (str.length() / 10))
-        ,static_cast<char>('0' + (str.length() % 10))
-    );
-
-    const int ec = std::sscanf(str.data(), fmtbuf.data(), val);
-    if ( ec == 0 || ec == EOF ) {
-        throw std::invalid_argument(
-            "invalid argument received in cmdargs::details::from_string_impl(), line "
-            __CMDARGS__STRINGIZE(__LINE__)
-        );
-    }
-}
-
-#if defined(__GNUC__) && !defined(__clang__)
-#   pragma GCC diagnostic pop
-#elif defined(__clang__)
-#   pragma clang diagnostic pop
-#elif defined(_MSC_VER)
-#endif
-
-template<typename T>
-typename std::enable_if_t<std::is_enum_v<T>>
-from_string_impl(T *val, std::string_view str) noexcept {
-    typename std::underlying_type<T>::type tmp{};
-    from_string_impl(&tmp, str);
-    *val = static_cast<T>(tmp);
-}
-
-template<typename T>
-typename std::enable_if_t<std::is_pointer_v<T>>
-from_string_impl(T *val, std::string_view /*str*/) noexcept {
-    *val = nullptr;
 }
 
 /*************************************************************************************************/
@@ -648,19 +557,57 @@ template<typename F, typename = void>
 struct is_callable: std::false_type
 {};
 
-template<typename...>
-using void_t = void;
-
 template<typename F>
 struct is_callable<
      F
-    ,void_t<
-        has_operator_call_t<
-            typename std::decay_t<F>
-        >
-    >
+    ,std::void_t<has_operator_call_t<typename std::decay_t<F>>>
 >: std::true_type
 {};
+
+/*************************************************************************************************/
+// lite function
+
+template<typename Sig>
+class lite_function;
+
+template<typename R, typename... Args>
+class lite_function<R(Args...)> {
+    using invoker_t = R(*)(void*, Args...);
+
+    void* m_obj = nullptr;
+    invoker_t m_invoke = nullptr;
+    void (*m_destroy)(void*) = nullptr;
+    void* (*m_clone)(const void*) = nullptr;
+
+public:
+    ~lite_function() { if (m_destroy) m_destroy(m_obj); }
+    lite_function() = default;
+
+    template<typename F, typename Decayed = std::decay_t<F>>
+    lite_function(F&& f)
+        :m_obj{new Decayed(std::forward<F>(f))}
+        ,m_invoke{[](void* p, Args... args) -> R
+            { return (*static_cast<Decayed*>(p))(std::forward<Args>(args)...); }}
+        ,m_destroy{[](void* p) { delete static_cast<Decayed*>(p); }}
+        ,m_clone{[](const void* p) -> void*
+            { return new Decayed(*static_cast<const Decayed*>(p)); }}
+    {}
+    lite_function(const lite_function &o)
+        :m_obj{o.m_clone ? o.m_clone(o.m_obj) : nullptr}
+        ,m_invoke{o.m_invoke}
+        ,m_destroy{o.m_destroy}
+        ,m_clone{o.m_clone}
+    {}
+    lite_function(lite_function &&o) noexcept
+        :m_obj{std::exchange(o.m_obj, nullptr)}
+        ,m_invoke{std::exchange(o.m_invoke, nullptr)}
+        ,m_destroy{std::exchange(o.m_destroy, nullptr)}
+        ,m_clone{std::exchange(o.m_clone, nullptr)}
+    {}
+
+    R operator()(Args... args) const { return m_invoke(m_obj, std::forward<Args>(args)...); }
+    explicit operator bool() const noexcept { return m_invoke != nullptr; }
+};
 
 /*************************************************************************************************/
 // callable traits
@@ -669,47 +616,24 @@ template<typename F>
 struct callable_traits: callable_traits<decltype(&F::operator())>
 {};
 
-template<typename R, typename Arg0>
-struct callable_traits<R(*)(Arg0)> {
-    using signature = R(Arg0);
-    using function  = std::function<signature>;
-    static constexpr std::size_t size = 1;
+template<typename R, typename... Args>
+struct callable_traits_base {
+    using signature = R(Args...);
+    using function  = lite_function<signature>;
+    static constexpr std::size_t size = sizeof...(Args);
 };
 
-template<typename R, typename Arg0, typename Arg1>
-struct callable_traits<R(*)(Arg0, Arg1)> {
-    using signature = R(Arg0, Arg1);
-    using function  = std::function<signature>;
-    static constexpr std::size_t size = 2;
-};
+template<typename R, typename... Args>
+struct callable_traits<R(*)(Args...)> :callable_traits_base<R, Args...>
+{};
 
-template<typename R, typename Arg0>
-struct callable_traits<R(&)(Arg0)> {
-    using signature = R(Arg0);
-    using function  = std::function<signature>;
-    static constexpr std::size_t size = 1;
-};
+template<typename R, typename... Args>
+struct callable_traits<R(&)(Args...)> :callable_traits_base<R, Args...>
+{};
 
-template<typename R, typename Arg0, typename Arg1>
-struct callable_traits<R(&)(Arg0, Arg1)> {
-    using signature = R(Arg0, Arg1);
-    using function  = std::function<signature>;
-    static constexpr std::size_t size = 2;
-};
-
-template<typename Obj, typename R, typename Arg0>
-struct callable_traits<R(Obj::*)(Arg0) const> {
-    using signature = R(Arg0);
-    using function  = std::function<signature>;
-    static constexpr std::size_t size = 1;
-};
-
-template<typename Obj, typename R, typename Arg0, typename Arg1>
-struct callable_traits<R(Obj::*)(Arg0, Arg1) const> {
-    using signature = R(Arg0, Arg1);
-    using function  = std::function<signature>;
-    static constexpr std::size_t size = 2;
-};
+template<typename Obj, typename R, typename... Args>
+struct callable_traits<R(Obj::*)(Args...) const> :callable_traits_base<R, Args...>
+{};
 
 /*************************************************************************************************/
 // relations
@@ -857,8 +781,8 @@ template<typename ID, typename V>
 struct option final {
     using value_type = V;
     using optional_type  = std::optional<value_type>;
-    using validator_type = std::function<bool(std::string_view str)>;
-    using converter_type = std::function<bool(value_type &dst, std::string_view str)>;
+    using validator_type = details::lite_function<bool(std::string_view str)>;
+    using converter_type = details::lite_function<bool(value_type &dst, std::string_view str)>;
 
 private:
     template<typename ...Args>
@@ -1165,9 +1089,8 @@ struct kwords_group {
     static constexpr details::optional_option_t optional{};
 
     template<typename T>
-    static auto default_(T &&v) noexcept {
-        return details::default_t<T>{std::forward<T>(v)};
-    }
+    static auto default_(T &&v) noexcept
+    { return details::default_t<T>{std::forward<T>(v)}; }
 
     template<typename ...Types>
     static auto and_(const Types &...args) noexcept
@@ -1184,14 +1107,14 @@ struct kwords_group {
         static_assert(details::is_callable<F>::value);
         using signature = typename details::callable_traits<F>::signature;
         static_assert(std::is_same_v<signature, bool(const std::string_view str)>);
-        return std::function<signature>{std::forward<F>(f)};
+        return details::lite_function<signature>{std::forward<F>(f)};
     }
     template<typename F>
     static auto converter_(F &&f) noexcept {
         static_assert(details::is_callable<F>::value);
         static_assert(details::callable_traits<F>::size == 2);
         using signature = typename details::callable_traits<F>::signature;
-        return std::function<signature>{std::forward<F>(f)};
+        return details::lite_function<signature>{std::forward<F>(f)};
     }
 
     // predefined converters
@@ -1541,51 +1464,32 @@ private:
     }
 
 private:
-    // const
-    template<std::size_t I = 0, typename Tuple, typename Func>
-    static typename std::enable_if_t<I != std::tuple_size<Tuple>::value>
-    for_each(const Tuple &tuple, const Func &func, bool inited_only) {
-        const auto &item = std::get<I>(tuple);
-        if ( inited_only ) {
-            if ( item.is_set() ) {
-                if ( !func(item) ) {
-                    return;
-                }
+    template<typename Tuple, typename Func>
+    static void for_each(const Tuple &tuple, const Func &func, bool inited_only) {
+        std::apply(
+            [&func, inited_only](const auto &...items) {
+                auto call = [&func, inited_only](const auto &item) -> bool {
+                    if (inited_only && !item.is_set()) return true;
+                    return func(item);
+                };
+                (void)(call(items) && ...);
             }
-        } else {
-            if ( !func(item) ) {
-                return;
-            }
-        }
-
-        for_each<I + 1>(tuple, func, inited_only);
+            ,tuple
+        );
     }
-    template<std::size_t I = 0, typename Tuple, typename Func>
-    static typename std::enable_if_t<I == std::tuple_size<Tuple>::value>
-    for_each(const Tuple &, const Func &, bool) {}
-
-    // non-const
-    template<std::size_t I = 0, typename Tuple, typename Func>
-    static typename std::enable_if_t<I != std::tuple_size<Tuple>::value>
-    for_each(Tuple &tuple, const Func &func, bool inited_only) {
-        auto &item = std::get<I>(tuple);
-        if ( inited_only ) {
-            if ( item.is_set() ) {
-                if ( !func(item) ) {
-                    return;
-                }
+    template<typename Tuple, typename Func>
+    static void for_each(Tuple &tuple, const Func &func, bool inited_only) {
+        std::apply(
+            [&func, inited_only](auto &...items) {
+                auto call = [&func, inited_only](auto &item) -> bool {
+                    if (inited_only && !item.is_set()) return true;
+                    return func(item);
+                };
+                (void)(call(items) && ...);
             }
-        } else {
-            if ( !func(item) ) {
-                return;
-            }
-        }
-
-        for_each<I + 1>(tuple, func, inited_only);
+            ,tuple
+        );
     }
-    template<std::size_t I = 0, typename Tuple, typename Func>
-    static typename std::enable_if_t<I == std::tuple_size<Tuple>::value>
-    for_each(Tuple &, const Func &, bool) {}
 };
 
 /*************************************************************************************************/
@@ -1625,7 +1529,7 @@ void parse_kv_list(
             if ( emsg ) {
                 *emsg = std::move(msg);
             } else {
-                throw std::invalid_argument(msg);
+                throw invalid_argument(msg);
             }
 
             return;
@@ -1668,7 +1572,7 @@ void parse_kv_list(
                 if ( emsg ) {
                     *emsg = std::move(msg);
                 } else {
-                    throw std::invalid_argument(msg);
+                    throw invalid_argument(msg);
                 }
 
                 return;
@@ -1684,7 +1588,7 @@ void parse_kv_list(
                     if ( emsg ) {
                         *emsg = std::move(msg);
                     } else {
-                        throw std::invalid_argument(msg);
+                        throw invalid_argument(msg);
                     }
 
                     return;
@@ -1733,7 +1637,7 @@ void parse_kv_list(
         if ( emsg ) {
             *emsg = std::move(msg);
         } else {
-            throw std::invalid_argument(msg);
+            throw invalid_argument(msg);
         }
 
         return;
@@ -1752,7 +1656,7 @@ void parse_kv_list(
         if ( emsg ) {
             *emsg = std::move(msg);
         } else {
-            throw std::invalid_argument(msg);
+            throw invalid_argument(msg);
         }
 
         return;
@@ -1773,7 +1677,7 @@ void parse_kv_list(
         if ( emsg ) {
             *emsg = std::move(msg);
         } else {
-            throw std::invalid_argument(msg);
+            throw invalid_argument(msg);
         }
 
         return;
@@ -1794,7 +1698,7 @@ void parse_kv_list(
         if ( emsg ) {
             *emsg = std::move(msg);
         } else {
-            throw std::invalid_argument(msg);
+            throw invalid_argument(msg);
         }
     }
 }
@@ -1954,26 +1858,11 @@ auto from_file(std::string *emsg, std::istream &is, const KWords &kw) {
     return from_file(emsg, is, tuple);
 }
 
-template<typename ...Args>
-std::string to_string(const args_pack<Args...> &args, bool inited_only = true) {
-    std::ostringstream os;
-
-    to_file(os, args, inited_only);
-
-    return os.str();
-}
-
 /*************************************************************************************************/
-
-#ifdef _WIN32
-constexpr char path_separator = '\\';
-#else
-constexpr char path_separator = '/';
-#endif // _WIN32
 
 template<typename ...Args>
 std::ostream& show_help(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
-    const auto pos = std::string_view{argv0}.rfind(path_separator);
+    const auto pos = std::string_view{argv0}.rfind(details::path_separator);
     const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
     os << p << ":" << std::endl;
 
@@ -2100,7 +1989,7 @@ template<typename ...Args>
 bool is_version_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
     if constexpr ( args.template contains<details::version_option_type>() ) {
         if ( args.template is_set<details::version_option_type>() ) {
-            const auto pos = std::string_view{argv0}.rfind(path_separator);
+            const auto pos = std::string_view{argv0}.rfind(details::path_separator);
             const auto ptr  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
             os << ptr << ": version - " << args.template get<details::version_option_type>() << std::endl;
 

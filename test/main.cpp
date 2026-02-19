@@ -27,6 +27,7 @@
 #include <cmdargs/cmdargs.hpp>
 
 #include <iostream>
+#include <sstream>
 #include <cassert>
 
 #ifdef NDEBUG
