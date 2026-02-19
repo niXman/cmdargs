@@ -24,6 +24,10 @@
 // SOFTWARE.
 // ----------------------------------------------------------------------------
 
+#ifdef TEST_MAX_OPTIONS
+#   define CMDARGS_MAX_OPTIONS_SIZE 32
+#endif
+
 #include <cmdargs/cmdargs.hpp>
 
 #include <iostream>

@@ -79,6 +79,10 @@
 
 #include <cstdint>
 
+#ifndef CMDARGS_MAX_OPTIONS_SIZE
+#   define CMDARGS_MAX_OPTIONS_SIZE 16
+#endif
+
 namespace cmdargs {
 
 /*************************************************************************************************/
@@ -303,86 +307,118 @@ auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 16>) noe
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
 }
+#if CMDARGS_MAX_OPTIONS_SIZE >= 17
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 17>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 18
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 18>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 19
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 19>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 20
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 20>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 21
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 21>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 22
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 22>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 23
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 23>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 24
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 24>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 25
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 25>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 26
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 26>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 27
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 27>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 28
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 28>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 29
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 29>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 30
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 30>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 31
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 31>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30);
 }
+#endif
+#if CMDARGS_MAX_OPTIONS_SIZE >= 32
 template<typename T>
 auto to_tuple_impl(const T &object, std::integral_constant<std::size_t, 32>) noexcept {
     const auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31] = object;
     return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31);
 }
+#endif
 
 template<typename T, std::size_t N>
 auto to_tuple_impl(const T &, std::integral_constant<std::size_t, N>) noexcept {
