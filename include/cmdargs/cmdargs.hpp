@@ -192,9 +192,15 @@ struct any_type { template<class T> constexpr operator T(); };
 #   pragma clang diagnostic ignored "-Wmissing-field-initializers"
 #endif
 
+template<class T, class Seq, class = void>
+struct is_braces_constructible_n_impl : std::false_type {};
+
 template<class T, std::size_t... I>
-decltype(void(T{(I, std::declval<any_type>())...}), std::true_type{})
-    test_is_braces_constructible_n(std::index_sequence<I...>);
+struct is_braces_constructible_n_impl<
+    T
+    ,std::index_sequence<I...>
+    ,std::void_t<decltype(T{(I, std::declval<any_type>())...})>
+> : std::true_type {};
 
 #if defined(__GNUC__) && !defined(__clang__)
 #   pragma GCC diagnostic pop
@@ -202,12 +208,14 @@ decltype(void(T{(I, std::declval<any_type>())...}), std::true_type{})
 #   pragma clang diagnostic pop
 #endif
 
-template <class, class...>
-std::false_type test_is_braces_constructible_n(...);
-
-template <class T, std::size_t N>
-using is_braces_constructible_n =
-    decltype(test_is_braces_constructible_n<T>(std::make_index_sequence<N>{}));
+template<class T, std::size_t N>
+struct is_braces_constructible_n
+    : std::conditional_t<
+        (N == 0u)
+        ,std::false_type
+        ,is_braces_constructible_n_impl<T, std::make_index_sequence<N>>
+    >
+{};
 
 template<class T, std::size_t L = 0u, std::size_t R = sizeof(T) + 1u>
 constexpr std::size_t to_tuple_size_impl() {
