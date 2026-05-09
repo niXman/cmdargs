@@ -42,7 +42,6 @@
 #include <utility>
 #include <memory>
 #include <functional>
-#include <typeinfo>
 
 #include <cstdint>
 #include <cassert>
@@ -637,6 +636,41 @@ template<typename Obj, typename R, typename... Args>
 struct callable_traits<R(Obj::*)(Args...) const> :callable_traits_base<R, Args...>
 {};
 
+template<typename F, typename ...Opts>
+inline constexpr bool validator_with_deps_invocable_v = std::is_invocable_r_v<
+    bool
+    ,F
+    ,std::string_view
+    ,const std::optional<typename std::decay_t<Opts>::value_type>&...
+>;
+
+template<typename T>
+inline constexpr bool always_false_v = false;
+
+template<typename F, typename = void>
+struct callable_operator_addressable_impl: std::false_type
+{};
+
+template<typename F>
+struct callable_operator_addressable_impl<
+    F
+    ,std::void_t<decltype(&std::decay_t<F>::operator())>
+>: std::true_type
+{};
+
+template<typename F>
+inline constexpr bool callable_operator_addressable_v
+    = callable_operator_addressable_impl<std::decay_t<F>>::value;
+
+template<typename F, typename V, typename ...Opts>
+inline constexpr bool converter_with_deps_invocable_v = std::is_invocable_r_v<
+    bool
+    ,F
+    ,V &
+    ,std::string_view
+    ,const std::optional<typename std::decay_t<Opts>::value_type>&...
+>;
+
 /*************************************************************************************************/
 // relations
 
@@ -722,6 +756,20 @@ struct contains_or
 template<typename ...Types>
 struct contains_not
     :contains<relation_pred_not, char, Types...>
+{};
+
+template<typename T, typename = void>
+struct is_option_ref_for_relation : std::false_type
+{};
+
+template<typename T>
+struct is_option_ref_for_relation<
+     T
+    ,std::void_t<
+         typename T::value_type
+        ,decltype(std::declval<const T &>().name())
+    >
+>: std::true_type
 {};
 
 template<class T>
@@ -925,6 +973,144 @@ struct typed_deps_storage final : deps_storage_base {
     }
 };
 
+struct option_ext_registry {
+    struct entry {
+        const void *key;
+        std::unique_ptr<deps_storage_base> validator;
+        std::unique_ptr<deps_storage_base> converter;
+    };
+
+    std::vector<entry> m_entries;
+
+    void register_at(
+         const void *key
+        ,std::unique_ptr<deps_storage_base> v
+        ,std::unique_ptr<deps_storage_base> c
+    ) {
+        if ( !v && !c ) {
+            return;
+        }
+
+        m_entries.push_back(entry{key, std::move(v), std::move(c)});
+    }
+
+    void unregister_at(const void *key) noexcept {
+        for ( auto it = m_entries.begin(); it != m_entries.end(); ++it ) {
+            if ( it->key == key ) {
+                m_entries.erase(it);
+
+                return;
+            }
+        }
+    }
+
+    bool try_clone_for(
+         const void *key
+        ,std::unique_ptr<deps_storage_base> *out_v
+        ,std::unique_ptr<deps_storage_base> *out_c
+    ) const {
+        for ( const auto &e : m_entries ) {
+            if ( e.key != key ) {
+                continue;
+            }
+            if ( e.validator && out_v ) {
+                *out_v = e.validator->clone();
+            }
+            if ( e.converter && out_c ) {
+                *out_c = e.converter->clone();
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    void retarget_key(const void *old_key, const void *new_key) noexcept {
+        for ( auto &e : m_entries ) {
+            if ( e.key == old_key ) {
+                e.key = new_key;
+
+                return;
+            }
+        }
+    }
+};
+
+inline std::vector<option_ext_registry *> &active_option_ext_registries() noexcept {
+    thread_local std::vector<option_ext_registry *> stack;
+
+    return stack;
+}
+
+inline option_ext_registry *top_option_ext_registry() noexcept {
+    auto &s = active_option_ext_registries();
+
+    return s.empty() ? nullptr : s.back();
+}
+
+inline void push_active_option_ext_registry(option_ext_registry *reg) noexcept {
+    active_option_ext_registries().push_back(reg);
+}
+
+inline void pop_active_option_ext_registry(option_ext_registry *reg) noexcept {
+    auto &s = active_option_ext_registries();
+    assert(!s.empty() && s.back() == reg);
+    (void)reg;
+
+    s.pop_back();
+}
+
+inline std::vector<std::unique_ptr<option_ext_registry>> &tl_owned_option_ext_registries() {
+    thread_local std::vector<std::unique_ptr<option_ext_registry>> storage;
+
+    return storage;
+}
+
+inline void enter_kwords_construction_scope() {
+    auto &owned = tl_owned_option_ext_registries();
+    owned.push_back(std::make_unique<option_ext_registry>());
+    push_active_option_ext_registry(owned.back().get());
+}
+
+inline void leave_kwords_construction_scope() {
+    auto &owned = tl_owned_option_ext_registries();
+    assert(!owned.empty());
+    pop_active_option_ext_registry(owned.back().get());
+    owned.pop_back();
+}
+
+inline bool clone_deps_for_key(
+     const void *key
+    ,std::unique_ptr<deps_storage_base> *out_v
+    ,std::unique_ptr<deps_storage_base> *out_c
+) {
+    auto &s = active_option_ext_registries();
+    for ( std::size_t i = s.size(); i-- > 0; ) {
+        if ( s[i]->try_clone_for(key, out_v, out_c) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template<typename Tuple, std::size_t N, std::size_t ...I>
+inline void init_pack_dep_arrays_from_registry(
+     std::array<std::unique_ptr<deps_storage_base>, N> &va
+    ,std::array<std::unique_ptr<deps_storage_base>, N> &ca
+    ,Tuple &&tup
+    ,std::index_sequence<I...>
+) {
+    (void)std::initializer_list<int>{(
+        (void)([&] {
+            const void *k = static_cast<const void *>(&std::get<I>(tup));
+            (void)clone_deps_for_key(k, &va[I], &ca[I]);
+        }()),
+        0
+    )...};
+}
+
 template<typename ...P>
 bool rebind_validator_storage_into(
      deps_storage_base *stor
@@ -968,8 +1154,7 @@ private:
     const std::vector<std::string_view> m_relation_not;
     const optional_type m_default_value;
     optional_type m_value;
-    std::unique_ptr<details::deps_storage_base> m_ext_v;
-    std::unique_ptr<details::deps_storage_base> m_ext_c;
+    details::option_ext_registry *m_deps_reg{};
 
 public:
     option& operator= (const option &) = delete;
@@ -987,11 +1172,29 @@ public:
         ,m_relation_not{o.m_relation_not}
         ,m_default_value{o.m_default_value}
         ,m_value{o.m_value}
-        ,m_ext_v{o.m_ext_v ? o.m_ext_v->clone() : nullptr}
-        ,m_ext_c{o.m_ext_c ? o.m_ext_c->clone() : nullptr}
+        ,m_deps_reg{}
     {}
 
-    option(option &&) = default;
+    option(option &&o) noexcept
+        :m_type_name{o.m_type_name}
+        ,m_description{o.m_description}
+        ,m_is_required{o.m_is_required}
+        ,m_uses_custom_validator{o.m_uses_custom_validator}
+        ,m_validator{std::move(o.m_validator)}
+        ,m_uses_custom_converter{o.m_uses_custom_converter}
+        ,m_converter{std::move(o.m_converter)}
+        ,m_relation_and{o.m_relation_and}
+        ,m_relation_or{o.m_relation_or}
+        ,m_relation_not{o.m_relation_not}
+        ,m_default_value{o.m_default_value}
+        ,m_value{std::move(o.m_value)}
+        ,m_deps_reg{o.m_deps_reg}
+    {
+        if ( m_deps_reg ) {
+            m_deps_reg->retarget_key(static_cast<const void *>(&o), static_cast<const void *>(this));
+            o.m_deps_reg = nullptr;
+        }
+    }
 
     template<typename ...Args>
     option(const char *descr, std::tuple<Args...> as_tuple)
@@ -1035,18 +1238,35 @@ public:
             ,"cmdargs: option cannot combine converter_ with extra deps and plain converter_"
         );
 
+        std::unique_ptr<details::deps_storage_base> vstor;
+        std::unique_ptr<details::deps_storage_base> cstor;
+
         if constexpr ( !std::is_same_v<ext_validator_type, details::ext_none> ) {
-            m_ext_v = std::make_unique<details::typed_deps_storage<ext_validator_type>>(
+            vstor = std::make_unique<details::typed_deps_storage<ext_validator_type>>(
                 std::move(std::get<ext_validator_type>(as_tuple))
             );
         }
         if constexpr ( !std::is_same_v<ext_converter_type, details::ext_none> ) {
-            m_ext_c = std::make_unique<details::typed_deps_storage<ext_converter_type>>(
+            cstor = std::make_unique<details::typed_deps_storage<ext_converter_type>>(
                 std::move(std::get<ext_converter_type>(as_tuple))
             );
         }
+
+        if ( vstor || cstor ) {
+            details::option_ext_registry *const reg = details::top_option_ext_registry();
+            assert(
+                reg
+                && "cmdargs: options with validator_/converter_ dependencies must be members of kwords_group"
+            );
+            reg->register_at(static_cast<const void *>(this), std::move(vstor), std::move(cstor));
+            m_deps_reg = reg;
+        }
     }
-    ~option() noexcept = default;
+    ~option() noexcept {
+        if ( m_deps_reg ) {
+            m_deps_reg->unregister_at(static_cast<const void *>(this));
+        }
+    }
 
     template<typename U>
     option operator= (U &&r) const noexcept {
@@ -1133,19 +1353,19 @@ public:
     }
 
     template<typename ...P>
-    void rebind_to_pack(args_pack<P...> &pack) {
-        if ( m_ext_v ) {
+    void rebind_to_pack(args_pack<P...> &pack, std::size_t idx) {
+        if ( pack.m_validator_dep[idx] ) {
             const bool ok = details::rebind_validator_storage_into<P...>(
-                m_ext_v.get()
+                pack.m_validator_dep[idx].get()
                 ,m_validator
                 ,pack
             );
 
             assert(ok && "cmdargs: rebind validator_with_deps failed");
         }
-        if ( m_ext_c ) {
+        if ( pack.m_converter_dep[idx] ) {
             const bool ok = details::rebind_converter_storage_into<value_type, P...>(
-                m_ext_c.get()
+                pack.m_converter_dep[idx].get()
                 ,m_converter
                 ,pack
             );
@@ -1338,6 +1558,12 @@ bool convert_as_map(std::map<K, V> &dst, std::string_view str, char pair_sep, ch
 /*************************************************************************************************/
 
 struct kwords_group {
+    kwords_group() { details::enter_kwords_construction_scope(); }
+    ~kwords_group() { details::leave_kwords_construction_scope(); }
+
+    kwords_group(const kwords_group &) = delete;
+    kwords_group &operator=(const kwords_group &) = delete;
+
     static constexpr details::optional_option_t optional{};
 
     template<typename T>
@@ -1351,13 +1577,8 @@ struct kwords_group {
     static auto or_(const Types &...args) noexcept
     { return get_relations<details::e_relation_type::OR>(args...); }
     template<typename ...Types>
-    static auto not_(const Types &...args) noexcept
-    { return get_relations<details::e_relation_type::NOT>(args...); }
-
-    static auto not_name(std::string_view n) noexcept {
-        return details::relations_name_list<details::e_relation_type::NOT, 1u>{
-            std::array<std::string_view, 1u>{n}
-        };
+    static auto not_(const Types &...args) noexcept {
+        return get_relations<details::e_relation_type::NOT>(args...);
     }
 
     template<typename F>
@@ -1370,14 +1591,13 @@ struct kwords_group {
 
     template<typename F, typename ...Opts>
     static auto validator_(F &&f, const Opts &...opts) noexcept {
-        static_assert(details::is_callable<F>::value);
         static_assert(sizeof...(Opts) > 0u);
         static_assert(
             sizeof...(Opts) <= CMDARGS_MAX_OPTION_DEPS
             ,"cmdargs: too many validator dependencies (raise CMDARGS_MAX_OPTION_DEPS)"
         );
         static_assert(
-            details::callable_traits<std::decay_t<F>>::size == 1u + sizeof...(Opts)
+            details::validator_with_deps_invocable_v<F, Opts...>
             ,"cmdargs: validator with deps must be bool(string_view, const std::optional<T>&...)"
         );
         return details::validator_with_deps<std::decay_t<Opts>...>{
@@ -1396,19 +1616,47 @@ struct kwords_group {
 
     template<typename F, typename ...Opts>
     static auto converter_(F &&f, const Opts &...opts) noexcept {
-        static_assert(details::is_callable<F>::value);
+        static_assert(sizeof...(Opts) > 0u);
+        static_assert(
+            sizeof...(Opts) <= CMDARGS_MAX_OPTION_DEPS
+            ,"cmdargs: too many converter dependencies (raise CMDARGS_MAX_OPTION_DEPS)"
+        );
+        using DT = std::decay_t<F>;
+        if constexpr ( details::callable_operator_addressable_v<DT> ) {
+            static_assert(details::is_callable<F>::value);
+            static_assert(
+                details::callable_traits<DT>::size == 2u + sizeof...(Opts)
+                ,"cmdargs: converter with deps must be bool(T&, string_view, const std::optional<U>&...)"
+            );
+            using conv_sig = typename details::callable_traits<DT>::signature;
+            using V = typename details::signature_first_arg_decay<conv_sig>::type;
+            static_assert(
+                details::converter_with_deps_invocable_v<F, V, Opts...>
+                ,"cmdargs: converter with deps must be bool(T&, string_view, const std::optional<U>&...)"
+            );
+            return details::converter_with_deps<V, std::decay_t<Opts>...>{
+                std::forward<F>(f)
+                ,opts...
+            };
+        } else {
+            static_assert(
+                details::always_false_v<F>
+                ,"cmdargs: converter with deps: value type is not deducible for a generic lambda; use converter_for<V>(f, dep_options...)"
+            );
+        }
+    }
+
+    template<typename V, typename F, typename ...Opts>
+    static auto converter_for(F &&f, const Opts &...opts) noexcept {
         static_assert(sizeof...(Opts) > 0u);
         static_assert(
             sizeof...(Opts) <= CMDARGS_MAX_OPTION_DEPS
             ,"cmdargs: too many converter dependencies (raise CMDARGS_MAX_OPTION_DEPS)"
         );
         static_assert(
-            details::callable_traits<std::decay_t<F>>::size == 2u + sizeof...(Opts)
+            details::converter_with_deps_invocable_v<F, V, Opts...>
             ,"cmdargs: converter with deps must be bool(T&, string_view, const std::optional<U>&...)"
         );
-        using conv_sig = typename details::callable_traits<std::decay_t<F>>::signature;
-        using V = typename details::signature_first_arg_decay<conv_sig>::type;
-
         return details::converter_with_deps<V, std::decay_t<Opts>...>{
             std::forward<F>(f)
             ,opts...
@@ -1452,6 +1700,10 @@ struct kwords_group {
 private:
     template<details::e_relation_type R, typename ...Types>
     static auto get_relations(const Types &...args) noexcept {
+        static_assert(
+            (... && details::is_option_ref_for_relation<std::decay_t<Types>>::value)
+            ,"cmdargs: and_, or_ and not_ only accept option objects"
+        );
         using tuple_type = std::tuple<typename std::decay_t<Types>...>;
         static_assert(
             std::tuple_size<tuple_type>::value
@@ -1474,24 +1726,57 @@ private:
         ,"duplicates of keywords are detected!"
     );
 
+    std::array<std::unique_ptr<details::deps_storage_base>, sizeof...(Args)> m_validator_dep{};
+    std::array<std::unique_ptr<details::deps_storage_base>, sizeof...(Args)> m_converter_dep{};
+
     container_type m_kwords;
+
+    template<typename ID, typename V>
+    friend struct option;
 
     template<typename... Os>
     friend struct ::cmdargs::details::validator_with_deps;
     template<typename Vx, typename... Os>
     friend struct ::cmdargs::details::converter_with_deps;
 
+    template<typename ...Types>
+    static container_type init_kwords_and_dep_storage(
+         std::array<std::unique_ptr<details::deps_storage_base>, sizeof...(Args)> &va
+        ,std::array<std::unique_ptr<details::deps_storage_base>, sizeof...(Args)> &ca
+        ,Types &&...types
+    ) {
+        constexpr std::size_t n = sizeof...(Args);
+        static_assert(sizeof...(Types) == n);
+        auto src_refs = std::forward_as_tuple(types...);
+        details::init_pack_dep_arrays_from_registry(
+            va
+            ,ca
+            ,src_refs
+            ,std::make_index_sequence<n>{}
+        );
+
+        return container_type{std::forward<Types>(types)...};
+    }
+
+    template<std::size_t ...I>
+    void rebind_slots_impl(std::index_sequence<I...>) {
+        (void)(std::get<I>(m_kwords).rebind_to_pack(*this, I), ...);
+    }
+
 public:
     template<typename ...Types>
     explicit args_pack(Types && ...types)
-        :m_kwords{std::forward<Types>(types)...}
+        : m_validator_dep{}
+        , m_converter_dep{}
+        , m_kwords{init_kwords_and_dep_storage(
+            m_validator_dep
+            ,m_converter_dep
+            ,std::forward<Types>(types)...
+        )}
     {
-        std::apply(
-            [this](auto &...items) {
-                (items.rebind_to_pack(*this), ...);
-            }
-            ,m_kwords
-        );
+        constexpr std::size_t n = sizeof...(Args);
+        static_assert(sizeof...(Types) == n);
+        rebind_slots_impl(std::make_index_sequence<n>{});
     }
 
     constexpr std::size_t size() const noexcept { return sizeof...(Args); }
