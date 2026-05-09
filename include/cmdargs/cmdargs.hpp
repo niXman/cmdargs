@@ -151,10 +151,10 @@ constexpr auto type_name_array() noexcept {
     static_assert(start < end);
 
     constexpr auto name = function.substr(start, (end - start));
-    constexpr auto double_colon_pos = name.find(double_colon);
-    if constexpr ( double_colon_pos != std::string_view::npos ) {
-        constexpr auto name2 = name.substr(double_colon_pos + double_colon.size()
-            ,end - (double_colon_pos + double_colon.size()));
+    constexpr auto last_dc = name.rfind(double_colon);
+    if constexpr ( last_dc != std::string_view::npos ) {
+        constexpr auto name2 = name.substr(last_dc + double_colon.size());
+
         return substring_as_array(name2, std::make_index_sequence<name2.size()>{});
     } else {
         return substring_as_array(name, std::make_index_sequence<name.size()>{});
