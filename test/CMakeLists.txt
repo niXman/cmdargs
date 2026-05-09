@@ -27,9 +27,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -UNDEBUG)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 elseif(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /UNDEBUG)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
 endif()
 
 find_package(Threads REQUIRED)

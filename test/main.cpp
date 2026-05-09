@@ -33,11 +33,21 @@
 
 #include <cmdargs/cmdargs.hpp>
 
-#include <cassert>
+#include <cstdio>
+#include <cstdlib>
 
-#ifdef NDEBUG
-#   error "This file MUST be compiled with NDEBUG undefined!"
-#endif
+#define CMDARGS_ASSERT(cond) \
+    do { \
+        if (!(cond)) { \
+            std::fprintf(stderr, "%s:%d: assertion failed: %s\n", __FILE__, __LINE__, #cond); \
+            std::abort(); \
+        } \
+    } while (0)
+
+inline char * const *cmdargs_mutable_argv(const char * const *argv) {
+    return const_cast<char * const *>(argv);
+}
+
 
 /*************************************************************************************************/
 
@@ -177,19 +187,19 @@ static void test_decl_00() {
         CMDARGS_OPTION(fsize, std::size_t, "source file size");
     } const kwords;
 
-    assert(kwords.fname.is_required() == true);
-    assert(kwords.fname.is_optional() == false);
-    assert(kwords.fname.is_set() == false);
-    assert(kwords.fsize.is_required() == true);
-    assert(kwords.fsize.is_optional() == false);
-    assert(kwords.fsize.is_set() == false);
+    CMDARGS_ASSERT(kwords.fname.is_required() == true);
+    CMDARGS_ASSERT(kwords.fname.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fname.is_set() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_required() == true);
+    CMDARGS_ASSERT(kwords.fsize.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_set() == false);
 
-    assert(kwords.fname.and_list().empty() == true);
-    assert(kwords.fname.or_list().empty() == true);
-    assert(kwords.fname.not_list().empty() == true);
-    assert(kwords.fsize.and_list().empty() == true);
-    assert(kwords.fsize.or_list().empty() == true);
-    assert(kwords.fsize.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.not_list().empty() == true);
 }
 
 /*************************************************************************************************/
@@ -200,19 +210,19 @@ static void test_decl_01() {
         CMDARGS_OPTION(fsize, std::size_t, "source file size");
     } const kwords;
 
-    assert(kwords.fname.is_required() == false);
-    assert(kwords.fname.is_optional() == true);
-    assert(kwords.fname.is_set() == false);
-    assert(kwords.fsize.is_required() == true);
-    assert(kwords.fsize.is_optional() == false);
-    assert(kwords.fsize.is_set() == false);
+    CMDARGS_ASSERT(kwords.fname.is_required() == false);
+    CMDARGS_ASSERT(kwords.fname.is_optional() == true);
+    CMDARGS_ASSERT(kwords.fname.is_set() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_required() == true);
+    CMDARGS_ASSERT(kwords.fsize.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_set() == false);
 
-    assert(kwords.fname.and_list().empty() == true);
-    assert(kwords.fname.or_list().empty() == true);
-    assert(kwords.fname.not_list().empty() == true);
-    assert(kwords.fsize.and_list().empty() == true);
-    assert(kwords.fsize.or_list().empty() == true);
-    assert(kwords.fsize.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.not_list().empty() == true);
 }
 
 static void test_decl_02() {
@@ -221,19 +231,19 @@ static void test_decl_02() {
         CMDARGS_OPTION(fsize, std::size_t, "source file size", optional);
     } const kwords;
 
-    assert(kwords.fname.is_required() == false);
-    assert(kwords.fname.is_optional() == true);
-    assert(kwords.fname.is_set() == false);
-    assert(kwords.fsize.is_required() == false);
-    assert(kwords.fsize.is_optional() == true);
-    assert(kwords.fsize.is_set() == false);
+    CMDARGS_ASSERT(kwords.fname.is_required() == false);
+    CMDARGS_ASSERT(kwords.fname.is_optional() == true);
+    CMDARGS_ASSERT(kwords.fname.is_set() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_required() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_optional() == true);
+    CMDARGS_ASSERT(kwords.fsize.is_set() == false);
 
-    assert(kwords.fname.and_list().empty() == true);
-    assert(kwords.fname.or_list().empty() == true);
-    assert(kwords.fname.not_list().empty() == true);
-    assert(kwords.fsize.and_list().empty() == true);
-    assert(kwords.fsize.or_list().empty() == true);
-    assert(kwords.fsize.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.not_list().empty() == true);
 }
 
 static void test_decl_03() {
@@ -242,19 +252,19 @@ static void test_decl_03() {
         CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
     } const kwords;
 
-    assert(kwords.fname.is_required() == true);
-    assert(kwords.fname.is_optional() == false);
-    assert(kwords.fname.is_set() == false);
-    assert(kwords.fsize.is_required() == true);
-    assert(kwords.fsize.is_optional() == false);
-    assert(kwords.fsize.is_set() == false);
+    CMDARGS_ASSERT(kwords.fname.is_required() == true);
+    CMDARGS_ASSERT(kwords.fname.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fname.is_set() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_required() == true);
+    CMDARGS_ASSERT(kwords.fsize.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_set() == false);
 
-    assert(kwords.fname.and_list().empty() == true);
-    assert(kwords.fname.or_list().empty() == true);
-    assert(kwords.fname.not_list().empty() == true);
-    assert(kwords.fsize.and_list().empty() == false);
-    assert(kwords.fsize.or_list().empty() == true);
-    assert(kwords.fsize.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.and_list().empty() == false);
+    CMDARGS_ASSERT(kwords.fsize.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.not_list().empty() == true);
 }
 
 static void test_decl_04() {
@@ -263,19 +273,19 @@ static void test_decl_04() {
         CMDARGS_OPTION(fsize, std::size_t, "source file size", or_(fname));
     } const kwords;
 
-    assert(kwords.fname.is_required() == true);
-    assert(kwords.fname.is_optional() == false);
-    assert(kwords.fname.is_set() == false);
-    assert(kwords.fsize.is_required() == true);
-    assert(kwords.fsize.is_optional() == false);
-    assert(kwords.fsize.is_set() == false);
+    CMDARGS_ASSERT(kwords.fname.is_required() == true);
+    CMDARGS_ASSERT(kwords.fname.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fname.is_set() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_required() == true);
+    CMDARGS_ASSERT(kwords.fsize.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_set() == false);
 
-    assert(kwords.fname.and_list().empty() == true);
-    assert(kwords.fname.or_list().empty() == true);
-    assert(kwords.fname.not_list().empty() == true);
-    assert(kwords.fsize.and_list().empty() == true);
-    assert(kwords.fsize.or_list().empty() == false);
-    assert(kwords.fsize.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.or_list().empty() == false);
+    CMDARGS_ASSERT(kwords.fsize.not_list().empty() == true);
 }
 
 static void test_decl_05() {
@@ -284,19 +294,19 @@ static void test_decl_05() {
         CMDARGS_OPTION(fsize, std::size_t, "source file size", not_(fname));
     } const kwords;
 
-    assert(kwords.fname.is_required() == true);
-    assert(kwords.fname.is_optional() == false);
-    assert(kwords.fname.is_set() == false);
-    assert(kwords.fsize.is_required() == true);
-    assert(kwords.fsize.is_optional() == false);
-    assert(kwords.fsize.is_set() == false);
+    CMDARGS_ASSERT(kwords.fname.is_required() == true);
+    CMDARGS_ASSERT(kwords.fname.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fname.is_set() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_required() == true);
+    CMDARGS_ASSERT(kwords.fsize.is_optional() == false);
+    CMDARGS_ASSERT(kwords.fsize.is_set() == false);
 
-    assert(kwords.fname.and_list().empty() == true);
-    assert(kwords.fname.or_list().empty() == true);
-    assert(kwords.fname.not_list().empty() == true);
-    assert(kwords.fsize.and_list().empty() == true);
-    assert(kwords.fsize.or_list().empty() == true);
-    assert(kwords.fsize.not_list().empty() == false);
+    CMDARGS_ASSERT(kwords.fname.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fname.not_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.and_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.or_list().empty() == true);
+    CMDARGS_ASSERT(kwords.fsize.not_list().empty() == false);
 }
 
 /*************************************************************************************************/
@@ -307,79 +317,79 @@ static void test_string_trim() {
     {
         std::string_view src = " string";
         auto res = cmdargs::details::ltrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "\nstring";
         auto res = cmdargs::details::ltrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "\rstring";
         auto res = cmdargs::details::ltrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "\tstring";
         auto res = cmdargs::details::ltrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = " \n\r\tstring";
         auto res = cmdargs::details::ltrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     // right trim
     {
         std::string_view src = "string ";
         auto res = cmdargs::details::rtrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "string\n";
         auto res = cmdargs::details::rtrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "string\r";
         auto res = cmdargs::details::rtrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "string\t";
         auto res = cmdargs::details::rtrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "string \n\r\t";
         auto res = cmdargs::details::rtrim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     // left + right trim
     {
         std::string_view src = " string ";
         auto res = cmdargs::details::trim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "\nstring\n";
         auto res = cmdargs::details::trim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "\rstring\r";
         auto res = cmdargs::details::trim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = "\tstring\t";
         auto res = cmdargs::details::trim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
     {
         std::string_view src = " \n\r\tstring \n\r\t";
         auto res = cmdargs::details::trim(src, ws);
-        assert(res == "string");
+        CMDARGS_ASSERT(res == "string");
     }
 }
 
@@ -393,106 +403,97 @@ static void test_bool_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fname=1.txt"
             ,"--fsize=1024"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
         static_assert(args.contains(kwords.fname) == true);
         static_assert(args.contains(kwords.fsize) == true);
         static_assert(args.contains(kwords.report) == true);
 
-        assert(args.is_set(kwords.fname) == true);
-        assert(args[kwords.fname] == "1.txt");
+        CMDARGS_ASSERT(args.is_set(kwords.fname) == true);
+        CMDARGS_ASSERT(args[kwords.fname] == "1.txt");
 
-        assert(args.is_set(kwords.fsize) == true);
-        assert(args[kwords.fsize] == 1024);
+        CMDARGS_ASSERT(args.is_set(kwords.fsize) == true);
+        CMDARGS_ASSERT(args[kwords.fsize] == 1024);
 
-        assert(!args.is_set(kwords.report));
+        CMDARGS_ASSERT(!args.is_set(kwords.report));
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fname=1.txt"
             ,"--fsize=1024"
             ,"--report"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
         static_assert(args.contains(kwords.fname) == true);
         static_assert(args.contains(kwords.fsize) == true);
         static_assert(args.contains(kwords.report) == true);
 
-        assert(args.is_set(kwords.fname) == true);
-        assert(args[kwords.fname] == "1.txt");
+        CMDARGS_ASSERT(args.is_set(kwords.fname) == true);
+        CMDARGS_ASSERT(args[kwords.fname] == "1.txt");
 
-        assert(args.is_set(kwords.fsize) == true);
-        assert(args[kwords.fsize] == 1024);
+        CMDARGS_ASSERT(args.is_set(kwords.fsize) == true);
+        CMDARGS_ASSERT(args[kwords.fsize] == 1024);
 
-        assert(args.is_set(kwords.report));
-        assert(args[kwords.report] == true);
+        CMDARGS_ASSERT(args.is_set(kwords.report));
+        CMDARGS_ASSERT(args[kwords.report] == true);
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fname=1.txt"
             ,"--fsize=1024"
             ,"--report=false"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
         static_assert(args.contains(kwords.fname) == true);
         static_assert(args.contains(kwords.fsize) == true);
         static_assert(args.contains(kwords.report) == true);
 
-        assert(args.is_set(kwords.fname) == true);
-        assert(args[kwords.fname] == "1.txt");
+        CMDARGS_ASSERT(args.is_set(kwords.fname) == true);
+        CMDARGS_ASSERT(args[kwords.fname] == "1.txt");
 
-        assert(args.is_set(kwords.fsize) == true);
-        assert(args[kwords.fsize] == 1024);
+        CMDARGS_ASSERT(args.is_set(kwords.fsize) == true);
+        CMDARGS_ASSERT(args[kwords.fsize] == 1024);
 
-        assert(args.is_set(kwords.report));
-        assert(args[kwords.report] == false);
+        CMDARGS_ASSERT(args.is_set(kwords.report));
+        CMDARGS_ASSERT(args[kwords.report] == false);
     }
 }
 
@@ -506,26 +507,23 @@ static void test_cond_and_00() {
             CMDARGS_OPTION_HELP();
         } const kwords;
 
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fsize=1024"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         {
             std::string emsg;
             auto args = cmdargs::parse_args(
                  &emsg
                 ,margc
-                ,margv
+                ,cmdargs_mutable_argv(margv)
                 ,kwords
             );
 
-            assert(!emsg.empty());
-            assert(has_substring(emsg, "together with \"--fname\""));
+            CMDARGS_ASSERT(!emsg.empty());
+            CMDARGS_ASSERT(has_substring(emsg, "together with \"--fname\""));
         }
     }
     {
@@ -534,26 +532,23 @@ static void test_cond_and_00() {
             CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
         } const kwords;
 
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fsize=1024"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         {
             std::string emsg;
             auto args = cmdargs::parse_args(
                  &emsg
                 ,margc
-                ,margv
+                ,cmdargs_mutable_argv(margv)
                 ,kwords
             );
 
-            assert(!emsg.empty());
-            assert(emsg == "no required \"--fname\" option was specified");
+            CMDARGS_ASSERT(!emsg.empty());
+            CMDARGS_ASSERT(emsg == "no required \"--fname\" option was specified");
         }
     }
     {
@@ -562,29 +557,26 @@ static void test_cond_and_00() {
             CMDARGS_OPTION(fsize, std::size_t, "source file size", and_(fname));
         } const kwords;
 
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fname=1.txt"
             ,"--fsize=1024"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         {
             std::string emsg;
             auto args = cmdargs::parse_args(
                  &emsg
                 ,margc
-                ,margv
+                ,cmdargs_mutable_argv(margv)
                 ,kwords
             );
 
             if ( !emsg.empty() ) {
                 std::cout << __func__ << ": " << emsg << std::endl;
             }
-            assert(emsg.empty());
+            CMDARGS_ASSERT(emsg.empty());
         }
     }
     {
@@ -595,72 +587,63 @@ static void test_cond_and_00() {
         } const kwords;
 
         {
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wwrite-strings"
-            char * const margv[] = {
+            const char * const margv[] = {
                  "cmdargs-test"
                 ,"--fsize=1024"
                 ,"--fmode=read"
             };
             int margc = sizeof(margv)/sizeof(margv[0]);
-            #pragma GCC diagnostic pop
 
             std::string emsg;
             auto args = cmdargs::parse_args(
                  &emsg
                 ,margc
-                ,margv
+                ,cmdargs_mutable_argv(margv)
                 ,kwords
             );
 
-            assert(!emsg.empty());
-            assert(emsg == "no required \"--fname\" option was specified");
+            CMDARGS_ASSERT(!emsg.empty());
+            CMDARGS_ASSERT(emsg == "no required \"--fname\" option was specified");
         }
 
         {
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wwrite-strings"
-            char * const margv[] = {
+            const char * const margv[] = {
                  "cmdargs-test"
                 ,"--fname=1.txt"
                 ,"--fmode=read"
             };
             int margc = sizeof(margv)/sizeof(margv[0]);
-            #pragma GCC diagnostic pop
 
             std::string emsg;
             auto args = cmdargs::parse_args(
                  &emsg
                 ,margc
-                ,margv
+                ,cmdargs_mutable_argv(margv)
                 ,kwords
             );
 
-            assert(!emsg.empty());
-            assert(emsg == "no required \"--fsize\" option was specified");
+            CMDARGS_ASSERT(!emsg.empty());
+            CMDARGS_ASSERT(emsg == "no required \"--fsize\" option was specified");
         }
 
         {
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wwrite-strings"
-            char * const margv[] = {
+            const char * const margv[] = {
                  "cmdargs-test"
                 ,"--fname=1.txt"
                 ,"--fsize=1024"
                 ,"--fmode=read"
             };
             int margc = sizeof(margv)/sizeof(margv[0]);
-            #pragma GCC diagnostic pop
 
             std::string emsg;
             auto args = cmdargs::parse_args(
                  &emsg
                 ,margc
-                ,margv
+                ,cmdargs_mutable_argv(margv)
                 ,kwords
             );
 
-            assert(emsg.empty());
+            CMDARGS_ASSERT(emsg.empty());
         }
     }
 }
@@ -675,90 +658,78 @@ static void test_cond_or_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(!emsg.empty());
-        assert(has_substring(emsg, "together with one of \"--fname\", \"--fsize\""));
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(has_substring(emsg, "together with one of \"--fname\", \"--fsize\""));
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fname=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fsize=1024"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fname=1.txt"
             ,"--fsize=1024"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(!emsg.empty());
-        assert(has_substring(emsg, "together with one of \"--fname\", \"--fsize\""));
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(has_substring(emsg, "together with one of \"--fname\", \"--fsize\""));
     }
 }
 
@@ -772,92 +743,80 @@ static void test_cond_not_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--netsrc=192.168.1.106"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(!emsg.empty());
-        assert(emsg == "the \"--fmode\" option must be used together with one of \"--netsrc\", \"--filesrc\"");
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "the \"--fmode\" option must be used together with one of \"--netsrc\", \"--filesrc\"");
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--netsrc=192.168.1.106"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(!emsg.empty());
-        assert(emsg == "the \"--fmode\" option must be used together with one of \"--netsrc\", \"--filesrc\"");
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "the \"--fmode\" option must be used together with one of \"--netsrc\", \"--filesrc\"");
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--netsrc=192.168.1.106"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
     }
 }
 
@@ -871,21 +830,18 @@ static void test_default_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -893,28 +849,25 @@ static void test_default_00() {
         static_assert(args.contains(kwords.filesrc) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
-        assert(args[kwords.filesrc] == "1.txt");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.filesrc] == "1.txt");
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--netsrc=192.168.1.101"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -922,11 +875,11 @@ static void test_default_00() {
         static_assert(args.contains(kwords.filesrc) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args[kwords.netsrc] == "192.168.1.101");
-        assert(args.get(kwords.filesrc, "2.txt") == "2.txt");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args[kwords.netsrc] == "192.168.1.101");
+        CMDARGS_ASSERT(args.get(kwords.filesrc, "2.txt") == "2.txt");
     }
 }
 
@@ -942,75 +895,66 @@ static void test_validator_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fmode=write"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "write");
+        CMDARGS_ASSERT(args[kwords.fmode] == "write");
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fmode=wrong"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(!emsg.empty());
-        assert(emsg == "an invalid value \"wrong\" was received for \"--fmode\" option");
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "an invalid value \"wrong\" was received for \"--fmode\" option");
     }
 }
 
@@ -1035,75 +979,66 @@ static void test_converter_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == kwords::read);
+        CMDARGS_ASSERT(args[kwords.fmode] == kwords::read);
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fmode=write"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == kwords::write);
+        CMDARGS_ASSERT(args[kwords.fmode] == kwords::write);
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--fmode=wrong"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(!emsg.empty());
-        assert(emsg == "can't convert value \"wrong\" for \"--fmode\" option");
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "can't convert value \"wrong\" for \"--fmode\" option");
     }
 }
 
@@ -1123,51 +1058,42 @@ static void test_validator_with_deps_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--flag=true"
             ,"--s=hi"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
-        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
-        assert(emsg.empty());
-        assert(args[kwords.s] == "hi");
+        auto args = cmdargs::parse_args(&emsg, margc, cmdargs_mutable_argv(margv), kwords);
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.s] == "hi");
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--flag=true"
             ,"--s="
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
-        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
+        auto args = cmdargs::parse_args(&emsg, margc, cmdargs_mutable_argv(margv), kwords);
         (void)args;
-        assert(!emsg.empty());
+        CMDARGS_ASSERT(!emsg.empty());
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--s=ok"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
-        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
-        assert(emsg.empty());
-        assert(args[kwords.s] == "ok");
+        auto args = cmdargs::parse_args(&emsg, margc, cmdargs_mutable_argv(margv), kwords);
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.s] == "ok");
     }
 }
 
@@ -1188,35 +1114,29 @@ static void test_converter_with_deps_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--n=21"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
-        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
-        assert(emsg.empty());
-        assert(args[kwords.n] == 21);
+        auto args = cmdargs::parse_args(&emsg, margc, cmdargs_mutable_argv(margv), kwords);
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.n] == 21);
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--scale=2"
             ,"--n=21"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
-        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
-        assert(emsg.empty());
-        assert(args[kwords.n] == 42);
+        auto args = cmdargs::parse_args(&emsg, margc, cmdargs_mutable_argv(margv), kwords);
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.n] == 42);
     }
 }
 
@@ -1238,37 +1158,34 @@ static void test_default_value_v2() {
     } const kwords;
 
     {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--netsrc=192.168.1.106"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         const auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args.is_set(kwords.netsrc) == true);
-        assert(args.has_default(kwords.netsrc) == true);
-        assert(args[kwords.netsrc] == "192.168.1.106");
+        CMDARGS_ASSERT(args.is_set(kwords.netsrc) == true);
+        CMDARGS_ASSERT(args.has_default(kwords.netsrc) == true);
+        CMDARGS_ASSERT(args[kwords.netsrc] == "192.168.1.106");
 
-        assert(args.is_set(kwords.filesrc) == false);
-        assert(args.has_default(kwords.filesrc) == true);
-        assert(args[kwords.filesrc] == "data.txt");
+        CMDARGS_ASSERT(args.is_set(kwords.filesrc) == false);
+        CMDARGS_ASSERT(args.has_default(kwords.filesrc) == true);
+        CMDARGS_ASSERT(args[kwords.filesrc] == "data.txt");
 
-        assert(args.is_set(kwords.fmode) == true);
-        assert(args.has_default(kwords.fmode) == false);
-        assert(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.is_set(kwords.fmode) == true);
+        CMDARGS_ASSERT(args.has_default(kwords.fmode) == false);
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
     }
 
 }
@@ -1283,25 +1200,22 @@ static void test_to_file_00() {
     } const kwords;
 
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--netsrc=192.168.1.106"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
         std::ostringstream os;
         cmdargs::to_file(os, args);
@@ -1313,28 +1227,25 @@ netsrc=192.168.1.106
 fmode=read
 )";
         auto str = os.str();
-        assert(os.str() == expected);
+        CMDARGS_ASSERT(os.str() == expected);
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
         std::ostringstream os;
         cmdargs::to_file(os, args);
@@ -1346,7 +1257,7 @@ filesrc=1.txt
 fmode=read
 )";
         auto str = os.str();
-        assert(os.str() == expected);
+        CMDARGS_ASSERT(os.str() == expected);
     }
 }
 
@@ -1373,8 +1284,8 @@ fmode=read
         static_assert(args.contains(kwords.filesrc) == true, "");
         static_assert(args.contains(kwords.fmode) == true, "");
 
-        assert(!emsg.empty());
-        assert(emsg == "the \"fmode\" option must be used together with one of \"netsrc\", \"filesrc\"");
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "the \"fmode\" option must be used together with one of \"netsrc\", \"filesrc\"");
     }
     {
         static const char *expected =
@@ -1386,8 +1297,8 @@ fmode=read
         std::string emsg;
         auto args = cmdargs::from_file(&emsg, is, kwords);
 
-        assert(!emsg.empty());
-        assert(emsg == "the \"fmode\" option must be used together with one of \"netsrc\", \"filesrc\"");
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "the \"fmode\" option must be used together with one of \"netsrc\", \"filesrc\"");
     }
     {
         static const char *expected =
@@ -1398,7 +1309,7 @@ fmode=read
         std::string emsg;
         auto args = cmdargs::from_file(&emsg, is, kwords);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
     }
     {
         static const char *expected =
@@ -1409,7 +1320,7 @@ fmode=read
         std::string emsg;
         auto args = cmdargs::from_file(&emsg, is, kwords);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
     }
 }
 
@@ -1434,24 +1345,21 @@ R"(test:
 )";
 
         auto str = os.str();
-        assert(str == expected);
+        CMDARGS_ASSERT(str == expected);
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-        #pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords.filesrc
             ,kwords.fmode
         );
@@ -1467,7 +1375,7 @@ R"(test:
 --fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
 )";
 
-        assert(os.str() == expected);
+        CMDARGS_ASSERT(os.str() == expected);
     }
 
     // help
@@ -1480,37 +1388,34 @@ R"(test:
             CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "/cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
             ,"--help"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords.filesrc
             ,kwords.fmode
             ,kwords.help
         );
-        assert(emsg.empty() == true);
+        CMDARGS_ASSERT(emsg.empty() == true);
 
         std::ostringstream os;
-        assert(cmdargs::is_help_requested(os, margv[0], args) == true);
+        CMDARGS_ASSERT(cmdargs::is_help_requested(os, margv[0], args) == true);
         static const char *expected =
 R"(cmdargs-test:
 --filesrc=*: "file source size" (std::string, optional, not(--netsrc))
 --fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
 --help=*   : "show help message" (bool, optional)
 )";
-        assert(os.str() == expected);
+        CMDARGS_ASSERT(os.str() == expected);
     }
     {
         struct: cmdargs::kwords_group {
@@ -1521,30 +1426,27 @@ R"(cmdargs-test:
             CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
              "/cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords.filesrc
             ,kwords.fmode
             ,kwords.help
         );
-        assert(emsg.empty() == true);
+        CMDARGS_ASSERT(emsg.empty() == true);
 
         std::ostringstream os;
-        assert(cmdargs::is_help_requested(os, margv[0], args) == false);
-        assert(os.str().empty() == true);
+        CMDARGS_ASSERT(cmdargs::is_help_requested(os, margv[0], args) == false);
+        CMDARGS_ASSERT(os.str().empty() == true);
     }
     // version
     {
@@ -1556,31 +1458,28 @@ R"(cmdargs-test:
             CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "/cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords.filesrc
             ,kwords.fmode
             ,kwords.help
             ,kwords.version
         );
-        assert(emsg.empty() == true);
+        CMDARGS_ASSERT(emsg.empty() == true);
 
         std::ostringstream os;
-        assert(cmdargs::is_version_requested(os, margv[0], args) == false);
-        assert(os.str().empty() == true);
+        CMDARGS_ASSERT(cmdargs::is_version_requested(os, margv[0], args) == false);
+        CMDARGS_ASSERT(os.str().empty() == true);
     }
     {
         struct: cmdargs::kwords_group {
@@ -1591,36 +1490,33 @@ R"(cmdargs-test:
             CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "/cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
             ,"--version"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords.filesrc
             ,kwords.fmode
             ,kwords.help
             ,kwords.version
         );
-        assert(emsg.empty() == true);
+        CMDARGS_ASSERT(emsg.empty() == true);
 
         std::ostringstream os;
-        assert(cmdargs::is_version_requested(os, margv[0], args) == true);
+        CMDARGS_ASSERT(cmdargs::is_version_requested(os, margv[0], args) == true);
 
         static const char *expected =
 R"(cmdargs-test: version - 0.0.1
 )";
-        assert(os.str() == expected);
+        CMDARGS_ASSERT(os.str() == expected);
     }
 
     // help or version
@@ -1633,28 +1529,25 @@ R"(cmdargs-test: version - 0.0.1
             CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "/cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
-        assert(emsg.empty() == true);
+        CMDARGS_ASSERT(emsg.empty() == true);
 
         std::ostringstream os;
-        assert(cmdargs::is_help_or_version_requested(os, margv[0], args) == false);
-        assert(os.str().empty() == true);
+        CMDARGS_ASSERT(cmdargs::is_help_or_version_requested(os, margv[0], args) == false);
+        CMDARGS_ASSERT(os.str().empty() == true);
     }
     {
         struct: cmdargs::kwords_group {
@@ -1665,28 +1558,25 @@ R"(cmdargs-test: version - 0.0.1
             CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "/cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
             ,"--help"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
-        assert(emsg.empty() == true);
+        CMDARGS_ASSERT(emsg.empty() == true);
 
         std::ostringstream os;
-        assert(cmdargs::is_help_or_version_requested(os, margv[0], args) == true);
+        CMDARGS_ASSERT(cmdargs::is_help_or_version_requested(os, margv[0], args) == true);
 
         static const char *expected =
 R"(cmdargs-test:
@@ -1696,7 +1586,7 @@ R"(cmdargs-test:
 --help=*   : "show help message" (bool, optional)
 --version=*: "show version message" (std::string, optional, default="0.0.1")
 )";
-        assert(os.str() == expected);
+        CMDARGS_ASSERT(os.str() == expected);
     }
     {
         struct: cmdargs::kwords_group {
@@ -1707,33 +1597,30 @@ R"(cmdargs-test:
             CMDARGS_OPTION_VERSION("0.0.1");
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "/cmdargs-test"
             ,"--filesrc=1.txt"
             ,"--fmode=read"
             ,"--version"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
-        assert(emsg.empty() == true);
+        CMDARGS_ASSERT(emsg.empty() == true);
 
         std::ostringstream os;
-        assert(cmdargs::is_help_or_version_requested(os, margv[0], args) == true);
+        CMDARGS_ASSERT(cmdargs::is_help_or_version_requested(os, margv[0], args) == true);
 
         static const char *expected =
 R"(cmdargs-test: version - 0.0.1
 )";
-        assert(os.str() == expected);
+        CMDARGS_ASSERT(os.str() == expected);
     }
 }
 
@@ -1749,21 +1636,18 @@ static void test_predefined_converters() {
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--fileslist=1.txt,2.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -1771,12 +1655,12 @@ static void test_predefined_converters() {
         static_assert(args.contains(kwords.fileslist) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
         const auto &fileslist = args[kwords.fileslist];
-        assert(fileslist == (std::vector<std::string>{"1.txt", "2.txt"}));
+        CMDARGS_ASSERT(fileslist == (std::vector<std::string>{"1.txt", "2.txt"}));
     }
     {
         struct: cmdargs::kwords_group {
@@ -1787,21 +1671,18 @@ static void test_predefined_converters() {
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--fileslist=1,2,3"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -1809,12 +1690,12 @@ static void test_predefined_converters() {
         static_assert(args.contains(kwords.fileslist) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
         const auto &fileslist = args[kwords.fileslist];
-        assert(fileslist == (std::vector<std::size_t>{1, 2, 3}));
+        CMDARGS_ASSERT(fileslist == (std::vector<std::size_t>{1, 2, 3}));
     }
     {
         struct: cmdargs::kwords_group {
@@ -1825,21 +1706,18 @@ static void test_predefined_converters() {
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--fileslist=1.txt,2.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -1847,12 +1725,12 @@ static void test_predefined_converters() {
         static_assert(args.contains(kwords.fileslist) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
         const auto &fileslist = args[kwords.fileslist];
-        assert(fileslist == (std::list<std::string>{"1.txt", "2.txt"}));
+        CMDARGS_ASSERT(fileslist == (std::list<std::string>{"1.txt", "2.txt"}));
     }
     {
         struct: cmdargs::kwords_group {
@@ -1863,21 +1741,18 @@ static void test_predefined_converters() {
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--fileslist=1.txt,2.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -1885,12 +1760,12 @@ static void test_predefined_converters() {
         static_assert(args.contains(kwords.fileslist) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
         const auto &fileslist = args[kwords.fileslist];
-        assert(fileslist == (std::set<std::string>{"1.txt", "2.txt"}));
+        CMDARGS_ASSERT(fileslist == (std::set<std::string>{"1.txt", "2.txt"}));
     }
     {
         struct: cmdargs::kwords_group {
@@ -1902,21 +1777,18 @@ static void test_predefined_converters() {
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--fileslist=1=1.txt,2=2.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -1924,12 +1796,12 @@ static void test_predefined_converters() {
         static_assert(args.contains(kwords.fileslist) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
         const auto &fileslist = args[kwords.fileslist];
-        assert(fileslist == (std::map<std::string, std::string>{{"1", "1.txt"}, {"2", "2.txt"}}));
+        CMDARGS_ASSERT(fileslist == (std::map<std::string, std::string>{{"1", "1.txt"}, {"2", "2.txt"}}));
     }
     {
         struct: cmdargs::kwords_group {
@@ -1941,21 +1813,18 @@ static void test_predefined_converters() {
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--fileslist=1=1.txt,2=2.txt"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -1963,12 +1832,12 @@ static void test_predefined_converters() {
         static_assert(args.contains(kwords.fileslist) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
         const auto &fileslist = args[kwords.fileslist];
-        assert(fileslist == (std::map<std::size_t, std::string>{{1, "1.txt"}, {2, "2.txt"}}));
+        CMDARGS_ASSERT(fileslist == (std::map<std::size_t, std::string>{{1, "1.txt"}, {2, "2.txt"}}));
     }
     {
         struct: cmdargs::kwords_group {
@@ -1980,21 +1849,18 @@ static void test_predefined_converters() {
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--fileslist=1=1,2=2"
             ,"--fmode=read"
         };
         int margc = sizeof(margv)/sizeof(margv[0]);
-#pragma GCC diagnostic pop
 
         std::string emsg;
         auto args = cmdargs::parse_args(
              &emsg
             ,margc
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
 
@@ -2002,12 +1868,12 @@ static void test_predefined_converters() {
         static_assert(args.contains(kwords.fileslist) == true);
         static_assert(args.contains(kwords.fmode) == true);
 
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
-        assert(args[kwords.fmode] == "read");
-        assert(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
+        CMDARGS_ASSERT(args[kwords.fmode] == "read");
+        CMDARGS_ASSERT(args.get(kwords.netsrc, std::string{"192.168.1.101"}) == "192.168.1.101");
         const auto &fileslist = args[kwords.fileslist];
-        assert(fileslist == (std::map<std::size_t, std::size_t>{{1, 1}, {2, 2}}));
+        CMDARGS_ASSERT(fileslist == (std::map<std::size_t, std::size_t>{{1, 1}, {2, 2}}));
     }
 }
 
@@ -2020,20 +1886,17 @@ static void test_as_optionals() {
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-    char * const margv[] = {
+    const char * const margv[] = {
         "cmdargs-test"
         ,"--netsrc=192.168.1.106"
         ,"--fmode=read"
     };
-#pragma GCC diagnostic pop
 
     std::string emsg;
     const auto [netsrc, filesrc, fmode] = cmdargs::parse_args(
          &emsg
         ,std::size(margv)
-        ,margv
+        ,cmdargs_mutable_argv(margv)
         ,kwords
     ).optionals();
 
@@ -2041,15 +1904,15 @@ static void test_as_optionals() {
     static_assert(std::is_same_v<decltype(filesrc), const std::optional<std::string>>);
     static_assert(std::is_same_v<decltype(fmode), const std::optional<std::string>>);
 
-    assert(emsg.empty());
+    CMDARGS_ASSERT(emsg.empty());
 
-    assert(!filesrc);
+    CMDARGS_ASSERT(!filesrc);
 
-    assert(netsrc);
-    assert(netsrc.value() == "192.168.1.106");
+    CMDARGS_ASSERT(netsrc);
+    CMDARGS_ASSERT(netsrc.value() == "192.168.1.106");
 
-    assert(fmode);
-    assert(fmode.value() == "read");
+    CMDARGS_ASSERT(fmode);
+    CMDARGS_ASSERT(fmode.value() == "read");
 }
 
 /*************************************************************************************************/
@@ -2061,20 +1924,17 @@ static void test_as_values() {
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-    char * const margv[] = {
+    const char * const margv[] = {
         "cmdargs-test"
         ,"--netsrc=192.168.1.106"
         ,"--fmode=read"
     };
-#pragma GCC diagnostic pop
 
     std::string emsg;
     const auto [netsrc, filesrc, fmode] = cmdargs::parse_args(
          &emsg
         ,std::size(margv)
-        ,margv
+        ,cmdargs_mutable_argv(margv)
         ,kwords
     ).values();
 
@@ -2082,15 +1942,15 @@ static void test_as_values() {
     static_assert(std::is_same_v<decltype(filesrc), const std::string>);
     static_assert(std::is_same_v<decltype(fmode), const std::string>);
 
-    assert(emsg.empty());
+    CMDARGS_ASSERT(emsg.empty());
 
-    assert(filesrc.empty());
+    CMDARGS_ASSERT(filesrc.empty());
 
-    assert(!netsrc.empty());
-    assert(netsrc == "192.168.1.106");
+    CMDARGS_ASSERT(!netsrc.empty());
+    CMDARGS_ASSERT(netsrc == "192.168.1.106");
 
-    assert(!fmode.empty());
-    assert(fmode == "read");
+    CMDARGS_ASSERT(!fmode.empty());
+    CMDARGS_ASSERT(fmode == "read");
 }
 
 /*************************************************************************************************/
@@ -2162,7 +2022,7 @@ relation     NOT: 0
 *******************************************
 )";
 
-        assert(ss.str() == expected);
+        CMDARGS_ASSERT(ss.str() == expected);
     }
     {
         struct kwords: cmdargs::kwords_group {
@@ -2171,23 +2031,20 @@ relation     NOT: 0
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
         } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-        char * const margv[] = {
+        const char * const margv[] = {
             "cmdargs-test"
             ,"--netsrc=192.168.1.106"
             ,"--fmode=read"
         };
-#pragma GCC diagnostic pop
 
         std::string emsg;
         const auto args = cmdargs::parse_args(
              &emsg
             ,std::size(margv)
-            ,margv
+            ,cmdargs_mutable_argv(margv)
             ,kwords
         );
-        assert(emsg.empty());
+        CMDARGS_ASSERT(emsg.empty());
 
         std::stringstream ss;
         cmdargs::dump_group(ss, args);
@@ -2227,7 +2084,7 @@ relation      OR: 2 (--netsrc, --filesrc)
 relation     NOT: 0
 *******************************************
 )";
-        assert(ss.str() == expected);
+        CMDARGS_ASSERT(ss.str() == expected);
     }
 }
 
@@ -2270,9 +2127,7 @@ static void test_max_options() {
         CMDARGS_OPTION(opt31, std::size_t, "test option", optional);
     } const kwords;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-    char * const margv[] = {
+    const char * const margv[] = {
         "cmdargs-test"
         ,"--opt0=0"
         ,"--opt1=1"
@@ -2307,25 +2162,24 @@ static void test_max_options() {
         ,"--opt30=30"
         ,"--opt31=31"
     };
-#pragma GCC diagnostic pop
 
     std::string emsg;
     const auto args = cmdargs::parse_args(
          &emsg
         ,std::size(margv)
-        ,margv
+        ,cmdargs_mutable_argv(margv)
         ,kwords
     );
-    assert(emsg.empty());
+    CMDARGS_ASSERT(emsg.empty());
     static_assert(args.size() == 32);
 
     std::size_t cnt = 0;
     args.for_each([&cnt](const auto &it){
-        assert(it.get_value() == cnt);
+        CMDARGS_ASSERT(it.get_value() == cnt);
         ++cnt;
         return true;
     });
-    assert(cnt == 32);
+    CMDARGS_ASSERT(cnt == 32);
 }
 #endif // TEST_MAX_OPTIONS
 
