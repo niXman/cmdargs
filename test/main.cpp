@@ -1966,9 +1966,9 @@ static void test_version() {
     static_assert(bugfix == CMDARGS_VERSION_BUGFIX);
 
     constexpr char str[] = {
-        __CMDARGS__STRINGIZE(CMDARGS_VERSION_MAJOR) "."
-        __CMDARGS__STRINGIZE(CMDARGS_VERSION_MINOR) "."
-        __CMDARGS__STRINGIZE(CMDARGS_VERSION_BUGFIX)
+        CMDARGS_STRINGIZE(CMDARGS_VERSION_MAJOR) "."
+        CMDARGS_STRINGIZE(CMDARGS_VERSION_MINOR) "."
+        CMDARGS_STRINGIZE(CMDARGS_VERSION_BUGFIX)
     };
     static_assert(std::string_view{CMDARGS_VERSION_STRING} == str);
 }
