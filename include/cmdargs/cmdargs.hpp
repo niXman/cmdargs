@@ -469,12 +469,12 @@ inline bool split(Sequence<T, A> &result, std::string_view str, char delim) {
     std::size_t start = 0;
     std::size_t found = str.find(delim);
     for ( ; found != std::string_view::npos; found = str.find(delim, start) ) {
-        result.emplace_back(str.begin() + start, found - start);
+        result.emplace_back(str.data() + start, found - start);
         start = found + sizeof(delim);
     }
 
     if ( start != str.size() ) {
-        result.emplace_back(str.begin() + start, str.length() - start);
+        result.emplace_back(str.data() + start, str.size() - start);
     }
 
     return !result.empty();

@@ -1331,11 +1331,11 @@ static void test_show_help_and_version_00() {
         CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
         CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
-    } const kwords;
+    } const kw_top;
 
     {
         std::ostringstream os;
-        cmdargs::show_help(os, "/test", kwords);
+        cmdargs::show_help(os, "/test", kw_top);
 
         static const char *expected =
 R"(test:
@@ -1360,11 +1360,11 @@ R"(test:
              &emsg
             ,margc
             ,cmdargs_mutable_argv(margv)
-            ,kwords.filesrc
-            ,kwords.fmode
+            ,kw_top.filesrc
+            ,kw_top.fmode
         );
-        static_assert(args.contains(kwords.filesrc) == true);
-        static_assert(args.contains(kwords.fmode) == true);
+        static_assert(args.contains(kw_top.filesrc) == true);
+        static_assert(args.contains(kw_top.fmode) == true);
 
         std::ostringstream os;
         cmdargs::show_help(os, "/test", args);
