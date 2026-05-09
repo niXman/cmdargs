@@ -51,11 +51,11 @@
 #define CMDARGS_MAX_OPTION_DEPS 3
 #endif
 
-#define __CMDARGS__STRINGIZE_I(x) #x
-#define __CMDARGS__STRINGIZE(x) __CMDARGS__STRINGIZE_I(x)
+#define CMDARGS_STRINGIZE_I(x) #x
+#define CMDARGS_STRINGIZE(x) CMDARGS_STRINGIZE_I(x)
 
-#define __CMDARGS_CAT_I(l, r) l ## r
-#define __CMDARGS_CAT(l, r) __CMDARGS_CAT_I(l, r)
+#define CMDARGS_CAT_I(l, r) l ## r
+#define CMDARGS_CAT(l, r) CMDARGS_CAT_I(l, r)
 
 // CMDARGS_VERSION_HEX >> 24 - is the major version
 // CMDARGS_VERSION_HEX >> 16 - is the minor version
@@ -75,9 +75,9 @@
 #define CMDARGS_VERSION_GET_BUGFIX(x) static_cast<std::uint8_t>(x >> 8 )
 
 #define CMDARGS_VERSION_STRING \
-    __CMDARGS__STRINGIZE(CMDARGS_VERSION_MAJOR) \
-    "." __CMDARGS__STRINGIZE(CMDARGS_VERSION_MINOR) \
-    "." __CMDARGS__STRINGIZE(CMDARGS_VERSION_BUGFIX)
+    CMDARGS_STRINGIZE(CMDARGS_VERSION_MAJOR) \
+    "." CMDARGS_STRINGIZE(CMDARGS_VERSION_MINOR) \
+    "." CMDARGS_STRINGIZE(CMDARGS_VERSION_BUGFIX)
 
 /*************************************************************************************************/
 
@@ -112,11 +112,21 @@ private:
 namespace details {
 
 constexpr inline char endl = '\n';
-#ifdef _WIN32
-constexpr inline char path_separator = '\\';
-#else
-constexpr inline char path_separator = '/';
-#endif // _WIN32
+
+inline const char *argv0_basename(const char *argv0) noexcept {
+    const std::string_view av{argv0};
+    const auto p1 = av.rfind('/');
+    const auto p2 = av.rfind('\\');
+    std::size_t pos = std::string_view::npos;
+    if ( p1 != std::string_view::npos ) {
+        pos = p1;
+    }
+    if ( p2 != std::string_view::npos && (pos == std::string_view::npos || p2 > pos) ) {
+        pos = p2;
+    }
+
+    return (pos != std::string_view::npos) ? (argv0 + pos + 1) : argv0;
+}
 
 /*************************************************************************************************/
 // type name
@@ -151,13 +161,27 @@ constexpr auto type_name_array() noexcept {
     static_assert(start < end);
 
     constexpr auto name = function.substr(start, (end - start));
-    constexpr auto last_dc = name.rfind(double_colon);
+    constexpr auto struct_prefix = std::string_view{"struct "};
+    constexpr auto class_prefix  = std::string_view{"class "};
+    constexpr auto name_elaborated = (
+        name.size() >= struct_prefix.size()
+        && name.compare(0, struct_prefix.size(), struct_prefix) == 0)
+            ? name.substr(struct_prefix.size())
+            : (name.size() >= class_prefix.size()
+                && name.compare(0, class_prefix.size(), class_prefix) == 0)
+                ? name.substr(class_prefix.size())
+                : name
+    ;
+    constexpr auto last_dc = name_elaborated.rfind(double_colon);
     if constexpr ( last_dc != std::string_view::npos ) {
-        constexpr auto name2 = name.substr(last_dc + double_colon.size());
+        constexpr auto name2 = name_elaborated.substr(last_dc + double_colon.size());
 
         return substring_as_array(name2, std::make_index_sequence<name2.size()>{});
     } else {
-        return substring_as_array(name, std::make_index_sequence<name.size()>{});
+        return substring_as_array(
+             name_elaborated
+            ,std::make_index_sequence<name_elaborated.size()>{}
+        );
     }
 }
 
@@ -521,7 +545,7 @@ void from_string_impl(T *val, std::string_view str) {
         if ( ec != std::errc{} ) {
             throw invalid_argument(
                 "invalid argument received in cmdargs::details::from_string_impl(), line "
-                __CMDARGS__STRINGIZE(__LINE__)
+                CMDARGS_STRINGIZE(__LINE__)
             );
         }
     } else if constexpr ( std::is_floating_point_v<T> ) {
@@ -529,7 +553,7 @@ void from_string_impl(T *val, std::string_view str) {
         if ( ec != std::errc{} ) {
             throw invalid_argument(
                 "invalid argument received in cmdargs::details::from_string_impl(), line "
-                __CMDARGS__STRINGIZE(__LINE__)
+                CMDARGS_STRINGIZE(__LINE__)
             );
         }
     } else if constexpr ( std::is_enum_v<T> ) {
@@ -1247,7 +1271,7 @@ public:
 
     static constexpr std::string_view name() noexcept {
         constexpr auto n = details::type_name<ID>();
-        return n.substr(0, n.length()-(sizeof(__CMDARGS__STRINGIZE(__CMDARGS__OPTION_SUFFIX))-1));
+        return n.substr(0, n.length()-(sizeof(CMDARGS_STRINGIZE(__CMDARGS__OPTION_SUFFIX))-1));
     }
     std::string_view type_name() const noexcept { return m_type_name; }
     std::string_view description() const noexcept { return m_description; }
@@ -1424,11 +1448,11 @@ private:
 namespace details {
 
 using help_option_type = option<
-     __CMDARGS_CAT(struct help, __CMDARGS__OPTION_SUFFIX)
+     CMDARGS_CAT(struct help, __CMDARGS__OPTION_SUFFIX)
     ,bool
 >;
 using version_option_type = option<
-     __CMDARGS_CAT(struct version, __CMDARGS__OPTION_SUFFIX)
+     CMDARGS_CAT(struct version, __CMDARGS__OPTION_SUFFIX)
     ,std::string
 >;
 
@@ -2944,9 +2968,7 @@ auto from_file(std::string *emsg, IS &is, const KWords &kw) {
 
 template<typename OS, typename ...Args>
 OS& show_help(OS &os, const char *argv0, const args_pack<Args...> &args) {
-    const auto pos = std::string_view{argv0}.rfind(details::path_separator);
-    const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
-    os << p << ":" << details::endl;
+    os << details::argv0_basename(argv0) << ":" << details::endl;
 
     std::size_t max_len = 0;
     args.for_each(
@@ -3073,9 +3095,7 @@ template<typename OS, typename ...Args>
 bool is_version_requested(OS &os, const char *argv0, const args_pack<Args...> &args) {
     if constexpr ( args_pack<Args...>::template contains<details::version_option_type>() ) {
         if ( args.template is_set<details::version_option_type>() ) {
-            const auto pos = std::string_view{argv0}.rfind(details::path_separator);
-            const auto ptr  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
-            os << ptr << ": version - " << args.template get<details::version_option_type>() << details::endl;
+            os << details::argv0_basename(argv0) << ": version - " << args.template get<details::version_option_type>() << details::endl;
 
             return true;
         }
@@ -3093,7 +3113,7 @@ bool is_help_or_version_requested(OS &os, const char *argv0, const args_pack<Arg
 
 #define CMDARGS_OPTION(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
     const ::cmdargs::option<\
-        struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX)\
+        struct CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX)\
         , OPTION_TYPE\
     > \
         OPTION_NAME{this, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
