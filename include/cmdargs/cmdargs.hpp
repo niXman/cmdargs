@@ -517,7 +517,7 @@ void from_string_impl(T *val, std::string_view str) {
             base = 16;
             str.remove_prefix(2);
         }
-        auto [_, ec] = std::from_chars(str.begin(), str.end(), *val, base);
+        auto [_, ec] = std::from_chars(str.data(), str.data() + str.size(), *val, base);
         if ( ec != std::errc{} ) {
             throw invalid_argument(
                 "invalid argument received in cmdargs::details::from_string_impl(), line "
