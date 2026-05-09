@@ -27,6 +27,7 @@
 
 //#include <iostream> // TODO: comment out
 
+#include <algorithm>
 #include <charconv>
 #include <vector>
 #include <list>
@@ -85,6 +86,8 @@
 #endif
 
 namespace cmdargs {
+
+struct kwords_group;
 
 /*************************************************************************************************/
 
@@ -1037,63 +1040,12 @@ struct option_ext_registry {
     }
 };
 
-inline std::vector<option_ext_registry *> &active_option_ext_registries() noexcept {
-    thread_local std::vector<option_ext_registry *> stack;
-
-    return stack;
-}
-
-inline option_ext_registry *top_option_ext_registry() noexcept {
-    auto &s = active_option_ext_registries();
-
-    return s.empty() ? nullptr : s.back();
-}
-
-inline void push_active_option_ext_registry(option_ext_registry *reg) noexcept {
-    active_option_ext_registries().push_back(reg);
-}
-
-inline void pop_active_option_ext_registry(option_ext_registry *reg) noexcept {
-    auto &s = active_option_ext_registries();
-    assert(!s.empty() && s.back() == reg);
-    (void)reg;
-
-    s.pop_back();
-}
-
-inline std::vector<std::unique_ptr<option_ext_registry>> &tl_owned_option_ext_registries() {
-    thread_local std::vector<std::unique_ptr<option_ext_registry>> storage;
-
-    return storage;
-}
-
-inline void enter_kwords_construction_scope() {
-    auto &owned = tl_owned_option_ext_registries();
-    owned.push_back(std::make_unique<option_ext_registry>());
-    push_active_option_ext_registry(owned.back().get());
-}
-
-inline void leave_kwords_construction_scope() {
-    auto &owned = tl_owned_option_ext_registries();
-    assert(!owned.empty());
-    pop_active_option_ext_registry(owned.back().get());
-    owned.pop_back();
-}
-
-inline bool clone_deps_for_key(
-     const void *key
-    ,std::unique_ptr<deps_storage_base> *out_v
-    ,std::unique_ptr<deps_storage_base> *out_c
-) {
-    auto &s = active_option_ext_registries();
-    for ( std::size_t i = s.size(); i-- > 0; ) {
-        if ( s[i]->try_clone_for(key, out_v, out_c) ) {
-            return true;
-        }
-    }
-
-    return false;
-}
+option_ext_registry *hook_option_ext_for_kwords(
+     ::cmdargs::kwords_group *g
+    ,const void *opt_key
+    ,std::unique_ptr<deps_storage_base> v
+    ,std::unique_ptr<deps_storage_base> c
+);
 
 template<typename Tuple, std::size_t N, std::size_t ...I>
 inline void init_pack_dep_arrays_from_registry(
@@ -1104,8 +1056,11 @@ inline void init_pack_dep_arrays_from_registry(
 ) {
     (void)std::initializer_list<int>{(
         (void)([&] {
-            const void *k = static_cast<const void *>(&std::get<I>(tup));
-            (void)clone_deps_for_key(k, &va[I], &ca[I]);
+            auto &opt = std::get<I>(tup);
+            if ( auto *const reg = opt.deps_registry() ) {
+                const void *const k = static_cast<const void *>(&opt);
+                (void)reg->try_clone_for(k, &va[I], &ca[I]);
+            }
         }()),
         0
     )...};
@@ -1157,6 +1112,8 @@ private:
     details::option_ext_registry *m_deps_reg{};
 
 public:
+    details::option_ext_registry *deps_registry() const noexcept { return m_deps_reg; }
+
     option& operator= (const option &) = delete;
     option& operator= (option &&) = delete;
     option(const option &o)
@@ -1197,7 +1154,7 @@ public:
     }
 
     template<typename ...Args>
-    option(const char *descr, std::tuple<Args...> as_tuple)
+    option(kwords_group *owner, const char *descr, std::tuple<Args...> as_tuple)
         :m_type_name{details::type_name<value_type>()}
         ,m_description{descr}
         ,m_is_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
@@ -1253,13 +1210,16 @@ public:
         }
 
         if ( vstor || cstor ) {
-            details::option_ext_registry *const reg = details::top_option_ext_registry();
             assert(
-                reg
+                owner
                 && "cmdargs: options with validator_/converter_ dependencies must be members of kwords_group"
             );
-            reg->register_at(static_cast<const void *>(this), std::move(vstor), std::move(cstor));
-            m_deps_reg = reg;
+            m_deps_reg = details::hook_option_ext_for_kwords(
+                owner
+                ,static_cast<const void *>(this)
+                ,std::move(vstor)
+                ,std::move(cstor)
+            );
         }
     }
     ~option() noexcept {
@@ -1558,8 +1518,8 @@ bool convert_as_map(std::map<K, V> &dst, std::string_view str, char pair_sep, ch
 /*************************************************************************************************/
 
 struct kwords_group {
-    kwords_group() { details::enter_kwords_construction_scope(); }
-    ~kwords_group() { details::leave_kwords_construction_scope(); }
+    kwords_group() { register_ext_registry(this); }
+    ~kwords_group() { unregister_ext_registry(this); }
 
     kwords_group(const kwords_group &) = delete;
     kwords_group &operator=(const kwords_group &) = delete;
@@ -1698,6 +1658,57 @@ struct kwords_group {
     }
 
 private:
+    static std::vector<
+        std::pair<kwords_group *, std::unique_ptr<details::option_ext_registry>>
+    > &ext_registry_storage() noexcept {
+        thread_local std::vector<
+            std::pair<kwords_group *, std::unique_ptr<details::option_ext_registry>>
+        > storage;
+
+        return storage;
+    }
+
+    static void register_ext_registry(kwords_group *g) {
+        auto &s = ext_registry_storage();
+        assert(
+            std::find_if(
+                 s.begin()
+                ,s.end()
+                ,[g](const auto &p) { return p.first == g; }
+            ) == s.end()
+        );
+        s.emplace_back(g, std::make_unique<details::option_ext_registry>());
+    }
+
+    static void unregister_ext_registry(kwords_group *g) {
+        auto &s = ext_registry_storage();
+        const auto it = std::find_if(
+             s.begin()
+            ,s.end()
+            ,[g](const auto &p) { return p.first == g; }
+        );
+        assert(it != s.end() && "cmdargs: kwords_group ext registry not registered");
+        s.erase(it);
+    }
+
+    static details::option_ext_registry *lookup_ext_registry(kwords_group *g) noexcept {
+        auto &s = ext_registry_storage();
+        const auto it = std::find_if(
+             s.begin()
+            ,s.end()
+            ,[g](const auto &p) { return p.first == g; }
+        );
+
+        return it == s.end() ? nullptr : it->second.get();
+    }
+
+    friend details::option_ext_registry *details::hook_option_ext_for_kwords(
+         kwords_group *g
+        ,const void *opt_key
+        ,std::unique_ptr<details::deps_storage_base> v
+        ,std::unique_ptr<details::deps_storage_base> c
+    );
+
     template<details::e_relation_type R, typename ...Types>
     static auto get_relations(const Types &...args) noexcept {
         static_assert(
@@ -1713,6 +1724,24 @@ private:
         return details::relations_list<R, Types...>{args.name()...};
     }
 };
+
+namespace details {
+
+inline option_ext_registry *hook_option_ext_for_kwords(
+     ::cmdargs::kwords_group *g
+    ,const void *opt_key
+    ,std::unique_ptr<deps_storage_base> v
+    ,std::unique_ptr<deps_storage_base> c
+) {
+    assert(g && (v || c));
+    auto *const reg = kwords_group::lookup_ext_registry(g);
+    assert(reg && "cmdargs: kwords_group not registered for ext storage");
+    reg->register_at(opt_key, std::move(v), std::move(c));
+
+    return reg;
+}
+
+} // namespace details
 
 /*************************************************************************************************/
 
@@ -1749,7 +1778,7 @@ private:
         static_assert(sizeof...(Types) == n);
         auto src_refs = std::forward_as_tuple(types...);
         details::init_pack_dep_arrays_from_registry(
-            va
+             va
             ,ca
             ,src_refs
             ,std::make_index_sequence<n>{}
@@ -1766,10 +1795,10 @@ private:
 public:
     template<typename ...Types>
     explicit args_pack(Types && ...types)
-        : m_validator_dep{}
-        , m_converter_dep{}
-        , m_kwords{init_kwords_and_dep_storage(
-            m_validator_dep
+        :m_validator_dep{}
+        ,m_converter_dep{}
+        ,m_kwords{init_kwords_and_dep_storage(
+             m_validator_dep
             ,m_converter_dep
             ,std::forward<Types>(types)...
         )}
@@ -1793,12 +1822,8 @@ public:
         static_assert(contains<Opt>(), "cmdargs: dependency option is absent from this args_pack");
 
         const auto &o = std::get<Opt>(m_kwords);
-        if ( o.is_set() ) {
-            return o.get_value();
-        }
-        if ( o.has_default() ) {
-            return o.get_default_value();
-        }
+        if ( o.is_set() ) { return o.get_value(); }
+        if ( o.has_default() ) { return o.get_default_value(); }
 
         return std::nullopt;
     }
@@ -3081,14 +3106,14 @@ bool is_help_or_version_requested(OS &os, const char *argv0, const args_pack<Arg
         struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX)\
         , OPTION_TYPE\
     > \
-        OPTION_NAME{OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
+        OPTION_NAME{this, OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
 #define CMDARGS_OPTION_HELP() \
-    const ::cmdargs::details::help_option_type help{"show help message" \
+    const ::cmdargs::details::help_option_type help{this, "show help message" \
         ,std::make_tuple(optional)}
 
 #define CMDARGS_OPTION_VERSION(str) \
-    const ::cmdargs::details::version_option_type version{"show version message" \
+    const ::cmdargs::details::version_option_type version{this, "show version message" \
         ,std::make_tuple(optional, ::cmdargs::details::default_t<std::string>{str})}
 
 /*************************************************************************************************/
