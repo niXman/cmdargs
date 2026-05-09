@@ -1316,22 +1316,24 @@ public:
     template<typename ...P>
     void rebind_to_pack(args_pack<P...> &pack, std::size_t idx) {
         if ( pack.m_validator_dep[idx] ) {
-            const bool ok = details::rebind_validator_storage_into<P...>(
-                pack.m_validator_dep[idx].get()
-                ,m_validator
-                ,pack
-            );
-
-            assert(ok && "cmdargs: rebind validator_with_deps failed");
+            if ( !details::rebind_validator_storage_into<P...>(
+                    pack.m_validator_dep[idx].get()
+                    ,m_validator
+                    ,pack
+                )
+            ) {
+                assert(false && "cmdargs: rebind validator_with_deps failed");
+            }
         }
         if ( pack.m_converter_dep[idx] ) {
-            const bool ok = details::rebind_converter_storage_into<value_type, P...>(
-                pack.m_converter_dep[idx].get()
-                ,m_converter
-                ,pack
-            );
-
-            assert(ok && "cmdargs: rebind converter_with_deps failed");
+            if ( !details::rebind_converter_storage_into<value_type, P...>(
+                    pack.m_converter_dep[idx].get()
+                    ,m_converter
+                    ,pack
+                )
+            ) {
+                assert(false && "cmdargs: rebind converter_with_deps failed");
+            }
         }
     }
 
@@ -1447,14 +1449,32 @@ bool convert_as_sequence(Sequence<T, A> &dst, std::string_view str, char sep) {
     return true;
 }
 
-// map
-template<
-     template<typename, typename, typename> class Assoc
-    ,typename K
-    ,typename V
-    ,typename A
->
-bool convert_as_assoc(Assoc<K, V, A> &dst, std::string_view str, char pair_sep, char kv_sep) {
+template<typename T>
+bool convert_as_vector(std::vector<T> &dst, std::string_view str, char sep) {
+    return convert_as_sequence(dst, str, sep);
+}
+
+template<typename T>
+bool convert_as_list(std::list<T> &dst, std::string_view str, char sep) {
+    return convert_as_sequence(dst, str, sep);
+}
+
+template<typename K, typename C, typename A>
+bool convert_as_set(std::set<K, C, A> &dst, std::string_view str, char sep) {
+    std::vector<std::string> vec;
+    convert_as_sequence(vec, str, sep);
+    for ( const auto &it: vec ) {
+        K k{};
+        from_string_impl(&k, {it.data(), it.size()});
+
+        dst.emplace(std::move(k));
+    }
+
+    return true;
+}
+
+template<typename K, typename V, typename C, typename A>
+bool convert_as_map(std::map<K, V, C, A> &dst, std::string_view str, char pair_sep, char kv_sep) {
     std::vector<std::string_view> vec;
     convert_as_sequence(vec, str, pair_sep);
     for ( const auto &it: vec ) {
@@ -1473,45 +1493,6 @@ bool convert_as_assoc(Assoc<K, V, A> &dst, std::string_view str, char pair_sep, 
     }
 
     return true;
-}
-
-// set
-template<
-     template<typename, typename> class Assoc
-    ,typename K
-    ,typename A
->
-bool convert_as_assoc(Assoc<K, A> &dst, std::string_view str, char sep) {
-    std::vector<std::string> vec;
-    convert_as_sequence(vec, str, sep);
-    for ( const auto &it: vec ) {
-        K k{};
-        from_string_impl(&k, {it.data(), it.size()});
-
-        dst.emplace(std::move(k));
-    }
-
-    return true;
-}
-
-template<typename T>
-bool convert_as_vector(std::vector<T> &dst, std::string_view str, char sep) {
-    return convert_as_sequence(dst, str, sep);
-}
-
-template<typename T>
-bool convert_as_list(std::list<T> &dst, std::string_view str, char sep) {
-    return convert_as_sequence(dst, str, sep);
-}
-
-template<typename T>
-bool convert_as_set(std::set<T> &dst, std::string_view str, char sep) {
-    return convert_as_assoc(dst, str, sep);
-}
-
-template<typename K, typename V>
-bool convert_as_map(std::map<K, V> &dst, std::string_view str, char pair_sep, char kv_sep) {
-    return convert_as_assoc(dst, str, pair_sep, kv_sep);
 }
 
 } // ns details
@@ -2704,7 +2685,7 @@ void parse_kv_list(
             } else {
                 // version case
                 args.for_each(
-                    [key](auto &item) {
+                    [](auto &item) {
                         if ( item.name() == details::version_option_type::name() ) {
                             item.set_value(item.get_default_value());
                             return false;
