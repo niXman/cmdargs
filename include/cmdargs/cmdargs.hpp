@@ -1,3 +1,4 @@
+#pragma once
 
 // ----------------------------------------------------------------------------
 // MIT License
@@ -24,16 +25,37 @@
 // SOFTWARE.
 // ----------------------------------------------------------------------------
 
-#ifndef __CMDARGS__CMDARGS_HPP
-#define __CMDARGS__CMDARGS_HPP
+//#include <iostream> // TODO: comment out
+
+#include <charconv>
+#include <vector>
+#include <list>
+#include <set>
+#include <map>
+#include <tuple>
+#include <array>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <exception>
+#include <optional>
+#include <utility>
+#include <memory>
+#include <functional>
+#include <typeinfo>
+
+#include <cstdint>
+#include <cassert>
+
+#ifndef CMDARGS_MAX_OPTION_DEPS
+#define CMDARGS_MAX_OPTION_DEPS 3
+#endif
 
 #define __CMDARGS__STRINGIZE_I(x) #x
 #define __CMDARGS__STRINGIZE(x) __CMDARGS__STRINGIZE_I(x)
 
 #define __CMDARGS_CAT_I(l, r) l ## r
 #define __CMDARGS_CAT(l, r) __CMDARGS_CAT_I(l, r)
-
-/*************************************************************************************************/
 
 // CMDARGS_VERSION_HEX >> 24 - is the major version
 // CMDARGS_VERSION_HEX >> 16 - is the minor version
@@ -58,26 +80,6 @@
     "." __CMDARGS__STRINGIZE(CMDARGS_VERSION_BUGFIX)
 
 /*************************************************************************************************/
-
-//#include <iostream> // TODO: comment out
-
-#include <ostream>
-#include <istream>
-#include <charconv>
-#include <vector>
-#include <list>
-#include <set>
-#include <map>
-#include <tuple>
-#include <array>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <exception>
-#include <optional>
-#include <utility>
-
-#include <cstdint>
 
 #ifndef CMDARGS_MAX_OPTIONS_SIZE
 #   define CMDARGS_MAX_OPTIONS_SIZE 16
@@ -107,10 +109,11 @@ private:
 
 namespace details {
 
+constexpr inline char endl = '\n';
 #ifdef _WIN32
-constexpr char path_separator = '\\';
+constexpr inline char path_separator = '\\';
 #else
-constexpr char path_separator = '/';
+constexpr inline char path_separator = '/';
 #endif // _WIN32
 
 /*************************************************************************************************/
@@ -601,51 +604,6 @@ struct is_callable<
 {};
 
 /*************************************************************************************************/
-// lite function
-
-template<typename Sig>
-class lite_function;
-
-template<typename R, typename... Args>
-class lite_function<R(Args...)> {
-    using invoker_t = R(*)(void*, Args...);
-
-    void* m_obj = nullptr;
-    invoker_t m_invoke = nullptr;
-    void (*m_destroy)(void*) = nullptr;
-    void* (*m_clone)(const void*) = nullptr;
-
-public:
-    ~lite_function() { if (m_destroy) m_destroy(m_obj); }
-    lite_function() = default;
-
-    template<typename F, typename Decayed = std::decay_t<F>>
-    lite_function(F&& f)
-        :m_obj{new Decayed(std::forward<F>(f))}
-        ,m_invoke{[](void* p, Args... args) -> R
-            { return (*static_cast<Decayed*>(p))(std::forward<Args>(args)...); }}
-        ,m_destroy{[](void* p) { delete static_cast<Decayed*>(p); }}
-        ,m_clone{[](const void* p) -> void*
-            { return new Decayed(*static_cast<const Decayed*>(p)); }}
-    {}
-    lite_function(const lite_function &o)
-        :m_obj{o.m_clone ? o.m_clone(o.m_obj) : nullptr}
-        ,m_invoke{o.m_invoke}
-        ,m_destroy{o.m_destroy}
-        ,m_clone{o.m_clone}
-    {}
-    lite_function(lite_function &&o) noexcept
-        :m_obj{std::exchange(o.m_obj, nullptr)}
-        ,m_invoke{std::exchange(o.m_invoke, nullptr)}
-        ,m_destroy{std::exchange(o.m_destroy, nullptr)}
-        ,m_clone{std::exchange(o.m_clone, nullptr)}
-    {}
-
-    R operator()(Args... args) const { return m_invoke(m_obj, std::forward<Args>(args)...); }
-    explicit operator bool() const noexcept { return m_invoke != nullptr; }
-};
-
-/*************************************************************************************************/
 // callable traits
 
 template<typename F>
@@ -655,8 +613,16 @@ struct callable_traits: callable_traits<decltype(&F::operator())>
 template<typename R, typename... Args>
 struct callable_traits_base {
     using signature = R(Args...);
-    using function  = lite_function<signature>;
+    using function  = std::function<R(Args...)>;
     static constexpr std::size_t size = sizeof...(Args);
+};
+
+template<typename Sig>
+struct signature_first_arg_decay;
+
+template<typename R, typename A0, typename ...Rest>
+struct signature_first_arg_decay<R(A0, Rest...)> {
+    using type = std::decay_t<A0>;
 };
 
 template<typename R, typename... Args>
@@ -692,6 +658,11 @@ struct relations_list {
     std::array<std::string_view, sizeof...(Types)> list;
 };
 
+template<e_relation_type E, std::size_t N>
+struct relations_name_list {
+    std::array<std::string_view, N> list;
+};
+
 // and
 template<typename Unused, typename T>
 struct relation_pred_and: std::false_type
@@ -720,6 +691,11 @@ struct relation_pred_not: std::false_type
 template<typename Unused, typename ...Types>
 struct relation_pred_not<Unused, relations_list<e_relation_type::NOT, Types...>>
     :std::true_type
+{};
+
+template<typename Unused, e_relation_type E, std::size_t N>
+struct relation_pred_not<Unused, relations_name_list<E, N>>
+    :std::bool_constant<E == e_relation_type::NOT>
 {};
 
 // generalized
@@ -804,6 +780,112 @@ struct contains_default
 
 struct optional_option_t {};
 
+/*************************************************************************************************/
+
+struct ext_none {};
+
+template<typename... Opts>
+struct validator_with_deps;
+
+template<typename V, typename... Opts>
+struct converter_with_deps;
+
+template<typename T>
+struct is_validator_with_deps: std::false_type
+{};
+
+template<typename... Opts>
+struct is_validator_with_deps<validator_with_deps<Opts...>>: std::true_type
+{};
+
+template<typename T>
+inline constexpr bool is_validator_with_deps_v = is_validator_with_deps<std::decay_t<T>>::value;
+
+template<typename T>
+struct is_converter_with_deps: std::false_type
+{};
+
+template<typename V, typename... Opts>
+struct is_converter_with_deps<converter_with_deps<V, Opts...>>: std::true_type
+{};
+
+template<typename T>
+inline constexpr bool is_converter_with_deps_v = is_converter_with_deps<std::decay_t<T>>::value;
+
+template<typename... Ts>
+struct first_validator_with_deps_or_none;
+
+template<>
+struct first_validator_with_deps_or_none<> {
+    using type = ext_none;
+};
+
+template<typename Head, typename... Tail>
+struct first_validator_with_deps_or_none<Head, Tail...> {
+    using type = std::conditional_t<
+         is_validator_with_deps_v<Head>
+        ,Head
+        ,typename first_validator_with_deps_or_none<Tail...>::type
+    >;
+};
+
+template<typename... Ts>
+struct first_converter_with_deps_or_none;
+
+template<>
+struct first_converter_with_deps_or_none<> {
+    using type = ext_none;
+};
+
+template<typename Head, typename... Tail>
+struct first_converter_with_deps_or_none<Head, Tail...> {
+    using type = std::conditional_t<
+         is_converter_with_deps_v<Head>
+        ,Head
+        ,typename first_converter_with_deps_or_none<Tail...>::type
+    >;
+};
+
+template<typename Tuple>
+struct tuple_ext_v_t_impl;
+
+template<typename... Ts>
+struct tuple_ext_v_t_impl<std::tuple<Ts...>> {
+    using type = typename first_validator_with_deps_or_none<Ts...>::type;
+};
+
+template<typename Tuple>
+struct tuple_ext_c_t_impl;
+
+template<typename... Ts>
+struct tuple_ext_c_t_impl<std::tuple<Ts...>> {
+    using type = typename first_converter_with_deps_or_none<Ts...>::type;
+};
+
+template<typename Tuple>
+using tuple_ext_v_t = typename tuple_ext_v_t_impl<std::decay_t<Tuple>>::type;
+
+template<typename Tuple>
+using tuple_ext_c_t = typename tuple_ext_c_t_impl<std::decay_t<Tuple>>::type;
+
+template<typename... Ts>
+inline constexpr std::size_t count_validator_with_deps_v
+    = (0u + ... + (is_validator_with_deps_v<Ts> ? 1u : 0u));
+
+template<typename Validator, typename... Ts>
+inline constexpr std::size_t count_plain_validators_v
+    = (0u + ... + (std::is_same_v<std::decay_t<Ts>, Validator> ? 1u : 0u));
+
+template<typename... Ts>
+inline constexpr std::size_t count_converter_with_deps_v
+    = (0u + ... + (is_converter_with_deps_v<Ts> ? 1u : 0u));
+
+template<typename Converter, typename... Ts>
+inline constexpr std::size_t count_plain_converters_v
+    = (0u + ... + (std::is_same_v<std::decay_t<Ts>, Converter> ? 1u : 0u));
+
+/*************************************************************************************************/
+
 } // ns details
 
 /*************************************************************************************************/
@@ -813,34 +895,102 @@ struct args_pack;
 
 #define __CMDARGS__OPTION_SUFFIX _tag
 
+namespace details {
+
+struct deps_storage_base {
+    virtual ~deps_storage_base() = default;
+    virtual std::unique_ptr<deps_storage_base> clone() const = 0;
+    virtual const std::type_info &storage_type() const noexcept = 0;
+    virtual void *storage_obj_void() noexcept = 0;
+};
+
+template<typename T>
+struct typed_deps_storage final : deps_storage_base {
+    T body;
+
+    explicit typed_deps_storage(T &&b)
+        : body{std::move(b)}
+    {}
+
+    std::unique_ptr<deps_storage_base> clone() const override {
+        return std::make_unique<typed_deps_storage>(T{body});
+    }
+
+    const std::type_info &storage_type() const noexcept override {
+        return typeid(T);
+    }
+
+    void *storage_obj_void() noexcept override {
+        return static_cast<void *>(&body);
+    }
+};
+
+template<typename ...P>
+bool rebind_validator_storage_into(
+     deps_storage_base *stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+);
+
+template<typename V, typename ...P>
+bool rebind_converter_storage_into(
+     deps_storage_base *stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+);
+
+} // namespace details
+
 template<typename ID, typename V>
 struct option final {
     using value_type = V;
     using optional_type  = std::optional<value_type>;
-    using validator_type = details::lite_function<bool(std::string_view str)>;
-    using converter_type = details::lite_function<bool(value_type &dst, std::string_view str)>;
+    using validator_type = std::function<bool(std::string_view str)>;
+    using converter_type = std::function<bool(value_type &dst, std::string_view str)>;
 
 private:
     template<typename ...Args>
     friend struct args_pack;
+    template<typename... Os>
+    friend struct ::cmdargs::details::validator_with_deps;
+    template<typename Vx, typename... Os>
+    friend struct ::cmdargs::details::converter_with_deps;
 
     const std::string_view m_type_name;
     const std::string_view m_description;
     const bool m_is_required;
     const bool m_uses_custom_validator;
-    const validator_type m_validator;
+    validator_type m_validator;
     const bool m_uses_custom_converter;
-    const converter_type m_converter;
+    converter_type m_converter;
     const std::vector<std::string_view> m_relation_and;
     const std::vector<std::string_view> m_relation_or;
     const std::vector<std::string_view> m_relation_not;
     const optional_type m_default_value;
     optional_type m_value;
+    std::unique_ptr<details::deps_storage_base> m_ext_v;
+    std::unique_ptr<details::deps_storage_base> m_ext_c;
 
 public:
     option& operator= (const option &) = delete;
     option& operator= (option &&) = delete;
-    option(const option &) = default;
+    option(const option &o)
+        :m_type_name{o.m_type_name}
+        ,m_description{o.m_description}
+        ,m_is_required{o.m_is_required}
+        ,m_uses_custom_validator{o.m_uses_custom_validator}
+        ,m_validator{o.m_validator}
+        ,m_uses_custom_converter{o.m_uses_custom_converter}
+        ,m_converter{o.m_converter}
+        ,m_relation_and{o.m_relation_and}
+        ,m_relation_or{o.m_relation_or}
+        ,m_relation_not{o.m_relation_not}
+        ,m_default_value{o.m_default_value}
+        ,m_value{o.m_value}
+        ,m_ext_v{o.m_ext_v ? o.m_ext_v->clone() : nullptr}
+        ,m_ext_c{o.m_ext_c ? o.m_ext_c->clone() : nullptr}
+    {}
+
     option(option &&) = default;
 
     template<typename ...Args>
@@ -848,16 +998,54 @@ public:
         :m_type_name{details::type_name<value_type>()}
         ,m_description{descr}
         ,m_is_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
-        ,m_uses_custom_validator{has_visitor<validator_type>(as_tuple)}
+        ,m_uses_custom_validator{
+            has_visitor<validator_type>(as_tuple)
+            || !std::is_same_v<
+                details::tuple_ext_v_t<std::tuple<Args...>>
+                ,details::ext_none
+            >
+        }
         ,m_validator{init_visitor<validator_type>(as_tuple)}
-        ,m_uses_custom_converter{has_visitor<converter_type>(as_tuple)}
+        ,m_uses_custom_converter{
+            has_visitor<converter_type>(as_tuple)
+            || !std::is_same_v<
+                details::tuple_ext_c_t<std::tuple<Args...>>
+                ,details::ext_none
+            >
+        }
         ,m_converter{init_visitor<converter_type>(as_tuple)}
         ,m_relation_and{init_cond_list<details::e_relation_type::AND>(as_tuple)}
         ,m_relation_or{init_cond_list<details::e_relation_type::OR>(as_tuple)}
         ,m_relation_not{init_cond_list<details::e_relation_type::NOT>(as_tuple)}
         ,m_default_value{get_default_value(as_tuple)}
         ,m_value{}
-    {}
+    {
+        using ext_validator_type = details::tuple_ext_v_t<std::tuple<Args...>>;
+        using ext_converter_type = details::tuple_ext_c_t<std::tuple<Args...>>;
+        static_assert(details::count_validator_with_deps_v<Args...> <= 1u);
+        static_assert(details::count_converter_with_deps_v<Args...> <= 1u);
+        static_assert(
+            (details::count_validator_with_deps_v<Args...> == 0u)
+            || (details::count_plain_validators_v<validator_type, Args...> == 0u)
+            ,"cmdargs: option cannot combine validator_ with extra deps and plain validator_"
+        );
+        static_assert(
+            (details::count_converter_with_deps_v<Args...> == 0u)
+            || (details::count_plain_converters_v<converter_type, Args...> == 0u)
+            ,"cmdargs: option cannot combine converter_ with extra deps and plain converter_"
+        );
+
+        if constexpr ( !std::is_same_v<ext_validator_type, details::ext_none> ) {
+            m_ext_v = std::make_unique<details::typed_deps_storage<ext_validator_type>>(
+                std::move(std::get<ext_validator_type>(as_tuple))
+            );
+        }
+        if constexpr ( !std::is_same_v<ext_converter_type, details::ext_none> ) {
+            m_ext_c = std::make_unique<details::typed_deps_storage<ext_converter_type>>(
+                std::move(std::get<ext_converter_type>(as_tuple))
+            );
+        }
+    }
     ~option() noexcept = default;
 
     template<typename U>
@@ -899,14 +1087,14 @@ public:
         return false;
     }
 
-    std::ostream& dump(std::ostream &os) const {
+    template<typename OS>
+    OS& dump(OS &os) const {
         const auto flags = os.flags();
         os
-            << std::boolalpha
-            << "name            : " << name() << std::endl
-            << "type            : " << m_type_name << std::endl
-            << "description     : " << '"' << m_description << '"' << std::endl
-            << "is required     : " << m_is_required << std::endl
+            << "name            : " << name() << details::endl
+            << "type            : " << m_type_name << details::endl
+            << "description     : " << '"' << m_description << '"' << details::endl
+            << "is required     : " << (m_is_required ? "true" : "false") << details::endl
             << "value           : "
         ;
         if ( m_value.has_value() ) {
@@ -922,26 +1110,48 @@ public:
             }
         }
         os
-            << std::endl
-            << "custom validator: " << uses_custom_validator() << std::endl
-            << "custom converter: " << uses_custom_converter() << std::endl
+            << details::endl
+            << "custom validator: " << (uses_custom_validator() ? "true" : "false") << details::endl
+            << "custom converter: " << (uses_custom_converter() ? "true" : "false") << details::endl
             << "relation     AND: " << m_relation_and.size()
         ;
         if ( m_relation_and.size() )
-        { os << " (" << details::cat_vector("--", m_relation_and) << ")" << std::endl; }
-        else { os << std::endl; }
+        { os << " (" << details::cat_vector("--", m_relation_and) << ")" << details::endl; }
+        else { os << details::endl; }
         os  << "relation      OR: " << m_relation_or.size();
         if ( m_relation_or.size() )
-        { os << " (" << details::cat_vector("--", m_relation_or) << ")" << std::endl; }
-        else { os << std::endl; }
+        { os << " (" << details::cat_vector("--", m_relation_or) << ")" << details::endl; }
+        else { os << details::endl; }
         os  << "relation     NOT: " << m_relation_not.size();
         if ( m_relation_not.size() )
-        { os << " (" << details::cat_vector("--", m_relation_not) << ")" << std::endl; }
-        else { os << std::endl; }
+        { os << " (" << details::cat_vector("--", m_relation_not) << ")" << details::endl; }
+        else { os << details::endl; }
 
         os.flags(flags);
 
         return os;
+    }
+
+    template<typename ...P>
+    void rebind_to_pack(args_pack<P...> &pack) {
+        if ( m_ext_v ) {
+            const bool ok = details::rebind_validator_storage_into<P...>(
+                m_ext_v.get()
+                ,m_validator
+                ,pack
+            );
+
+            assert(ok && "cmdargs: rebind validator_with_deps failed");
+        }
+        if ( m_ext_c ) {
+            const bool ok = details::rebind_converter_storage_into<value_type, P...>(
+                m_ext_c.get()
+                ,m_converter
+                ,pack
+            );
+
+            assert(ok && "cmdargs: rebind converter_with_deps failed");
+        }
     }
 
 private:
@@ -1022,8 +1232,14 @@ private:
 
 namespace details {
 
-using help_option_type = option<__CMDARGS_CAT(struct help, __CMDARGS__OPTION_SUFFIX), bool>;
-using version_option_type = option<__CMDARGS_CAT(struct version, __CMDARGS__OPTION_SUFFIX), std::string>;
+using help_option_type = option<
+     __CMDARGS_CAT(struct help, __CMDARGS__OPTION_SUFFIX)
+    ,bool
+>;
+using version_option_type = option<
+     __CMDARGS_CAT(struct version, __CMDARGS__OPTION_SUFFIX)
+    ,std::string
+>;
 
 } // ns details
 
@@ -1138,19 +1354,65 @@ struct kwords_group {
     static auto not_(const Types &...args) noexcept
     { return get_relations<details::e_relation_type::NOT>(args...); }
 
+    static auto not_name(std::string_view n) noexcept {
+        return details::relations_name_list<details::e_relation_type::NOT, 1u>{
+            std::array<std::string_view, 1u>{n}
+        };
+    }
+
     template<typename F>
     static auto validator_(F &&f) noexcept {
         static_assert(details::is_callable<F>::value);
         using signature = typename details::callable_traits<F>::signature;
         static_assert(std::is_same_v<signature, bool(const std::string_view str)>);
-        return details::lite_function<signature>{std::forward<F>(f)};
+        return std::function<signature>{std::forward<F>(f)};
     }
+
+    template<typename F, typename ...Opts>
+    static auto validator_(F &&f, const Opts &...opts) noexcept {
+        static_assert(details::is_callable<F>::value);
+        static_assert(sizeof...(Opts) > 0u);
+        static_assert(
+            sizeof...(Opts) <= CMDARGS_MAX_OPTION_DEPS
+            ,"cmdargs: too many validator dependencies (raise CMDARGS_MAX_OPTION_DEPS)"
+        );
+        static_assert(
+            details::callable_traits<std::decay_t<F>>::size == 1u + sizeof...(Opts)
+            ,"cmdargs: validator with deps must be bool(string_view, const std::optional<T>&...)"
+        );
+        return details::validator_with_deps<std::decay_t<Opts>...>{
+            std::forward<F>(f)
+            ,opts...
+        };
+    }
+
     template<typename F>
     static auto converter_(F &&f) noexcept {
         static_assert(details::is_callable<F>::value);
         static_assert(details::callable_traits<F>::size == 2);
         using signature = typename details::callable_traits<F>::signature;
-        return details::lite_function<signature>{std::forward<F>(f)};
+        return std::function<signature>{std::forward<F>(f)};
+    }
+
+    template<typename F, typename ...Opts>
+    static auto converter_(F &&f, const Opts &...opts) noexcept {
+        static_assert(details::is_callable<F>::value);
+        static_assert(sizeof...(Opts) > 0u);
+        static_assert(
+            sizeof...(Opts) <= CMDARGS_MAX_OPTION_DEPS
+            ,"cmdargs: too many converter dependencies (raise CMDARGS_MAX_OPTION_DEPS)"
+        );
+        static_assert(
+            details::callable_traits<std::decay_t<F>>::size == 2u + sizeof...(Opts)
+            ,"cmdargs: converter with deps must be bool(T&, string_view, const std::optional<U>&...)"
+        );
+        using conv_sig = typename details::callable_traits<std::decay_t<F>>::signature;
+        using V = typename details::signature_first_arg_decay<conv_sig>::type;
+
+        return details::converter_with_deps<V, std::decay_t<Opts>...>{
+            std::forward<F>(f)
+            ,opts...
+        };
     }
 
     // predefined converters
@@ -1214,11 +1476,23 @@ private:
 
     container_type m_kwords;
 
+    template<typename... Os>
+    friend struct ::cmdargs::details::validator_with_deps;
+    template<typename Vx, typename... Os>
+    friend struct ::cmdargs::details::converter_with_deps;
+
 public:
     template<typename ...Types>
     explicit args_pack(Types && ...types)
         :m_kwords{std::forward<Types>(types)...}
-    {}
+    {
+        std::apply(
+            [this](auto &...items) {
+                (items.rebind_to_pack(*this), ...);
+            }
+            ,m_kwords
+        );
+    }
 
     constexpr std::size_t size() const noexcept { return sizeof...(Args); }
 
@@ -1228,6 +1502,21 @@ public:
     template<typename T>
     static constexpr bool contains() noexcept
     { return details::contains<std::is_same, T, Args...>::value; }
+
+    template<typename Opt>
+    std::optional<typename Opt::value_type> optional_for() const {
+        static_assert(contains<Opt>(), "cmdargs: dependency option is absent from this args_pack");
+
+        const auto &o = std::get<Opt>(m_kwords);
+        if ( o.is_set() ) {
+            return o.get_value();
+        }
+        if ( o.has_default() ) {
+            return o.get_default_value();
+        }
+
+        return std::nullopt;
+    }
 
     auto optionals() const noexcept {
         return std::make_tuple(std::get<Args>(m_kwords).m_value...);
@@ -1315,18 +1604,21 @@ public:
 
     const auto& operator() () const { return m_kwords; }
 
-    std::ostream& dump(std::ostream &os, bool inited_only = false) const {
+    template<typename OS>
+    OS& dump(OS &os, bool inited_only = false) const {
         return to_file(os, *this, inited_only);
     }
-    friend std::ostream& operator<< (std::ostream &os, const args_pack &set) {
+    template<typename OS>
+    friend OS& operator<< (OS &os, const args_pack &set) {
         return set.dump(os);
     }
 
     // for debug only
-    void show_this(std::ostream &os) const {
+    template<typename OS>
+    void show_this(OS &os) const {
         for_each(
             [&os](const auto &item)
-            { os << "  " << item.name() << ": this="; item.show_this(os) << std::endl; }
+            { os << "  " << item.name() << ": this="; item.show_this(os) << details::endl; }
         );
     }
 
@@ -1350,20 +1642,6 @@ private:
         ,Iter beg
         ,Iter end
         ,args_pack<TArgs...> &set
-    );
-
-    template<typename ...TArgs>
-    friend std::ostream& to_file(
-         std::ostream &os
-        ,const args_pack<TArgs...> &set
-        ,bool inited_only
-    );
-
-    template<typename ...TArgs>
-    friend std::ostream& show_help(
-         std::ostream &os
-        ,const char *argv0
-        ,const args_pack<TArgs...> &set
     );
 
     bool get_is_set(const std::string_view name) const {
@@ -1527,6 +1805,477 @@ private:
         );
     }
 };
+
+/*************************************************************************************************/
+
+namespace details {
+
+template<typename... Opts>
+struct validator_with_deps {
+    using fn_type = std::function<bool(
+         std::string_view
+        ,const std::optional<typename Opts::value_type> &...
+    )>;
+    fn_type f;
+
+    template<
+         typename Fw
+        ,typename = std::enable_if_t<std::is_constructible_v<fn_type, Fw>>
+    >
+    validator_with_deps(Fw &&fn, const Opts &...opts)
+        : f{std::forward<Fw>(fn)}
+    {
+        (void)std::initializer_list<int>{(static_cast<void>(opts), 0)...};
+    }
+
+    template<typename ...P>
+    bool call(std::string_view s, const args_pack<P...> &pack) const {
+        static_assert((... && args_pack<P...>::template contains<std::decay_t<Opts>>()));
+
+        return f(
+            s
+            ,std::get<std::decay_t<Opts>>(pack.m_kwords).m_value...
+        );
+    }
+};
+
+template<typename V, typename... Opts>
+struct converter_with_deps {
+    using fn_type = std::function<bool(
+         V &
+        ,std::string_view
+        ,const std::optional<typename Opts::value_type> &...
+    )>;
+    fn_type f;
+
+    template<
+         typename Fw
+        ,typename = std::enable_if_t<std::is_constructible_v<fn_type, Fw>>
+    >
+    converter_with_deps(Fw &&fn, const Opts &...opts)
+        : f{std::forward<Fw>(fn)}
+    {
+        (void)std::initializer_list<int>{(static_cast<void>(opts), 0)...};
+    }
+
+    template<typename ...P>
+    bool call(V &dst, std::string_view s, const args_pack<P...> &pack) const {
+        static_assert((... && args_pack<P...>::template contains<std::decay_t<Opts>>()));
+
+        return f(
+            dst
+            ,s
+            ,std::get<std::decay_t<Opts>>(pack.m_kwords).m_value...
+        );
+    }
+};
+
+/*************************************************************************************************/
+
+template<std::size_t I, typename ...P>
+using pack_option_t = std::tuple_element_t<I, std::tuple<P...>>;
+
+template<std::size_t I, typename ...P>
+inline bool try_rebind_validator_1(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    using Ev = validator_with_deps<pack_option_t<I, P...>>;
+
+    if ( ti != typeid(Ev) ) {
+        return false;
+    }
+
+    auto &v = *static_cast<Ev *>(stor.storage_obj_void());
+    slot = std::function<bool(std::string_view)>{
+        [&v, &pack](std::string_view s) noexcept -> bool {
+            return v.call(s, pack);
+        }
+    };
+
+    return true;
+}
+
+template<typename ...P, std::size_t ...I>
+inline bool rebind_validator_dispatch_1(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+    ,std::index_sequence<I...>
+) {
+    return (... || try_rebind_validator_1<I, P...>(ti, stor, slot, pack));
+}
+
+template<std::size_t I, std::size_t J, typename ...P>
+inline bool try_rebind_validator_2(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    if constexpr ( I == J ) {
+        (void)ti;
+        (void)stor;
+        (void)slot;
+        (void)pack;
+
+        return false;
+    } else {
+        using Ev = validator_with_deps<
+             pack_option_t<I, P...>
+            ,pack_option_t<J, P...>
+        >;
+
+        if ( ti != typeid(Ev) ) {
+            return false;
+        }
+
+        auto &v = *static_cast<Ev *>(stor.storage_obj_void());
+        slot = std::function<bool(std::string_view)>{
+            [&v, &pack](std::string_view s) noexcept -> bool {
+                return v.call(s, pack);
+            }
+        };
+
+        return true;
+    }
+}
+
+template<std::size_t K, typename ...P>
+inline bool try_rebind_validator_2_flat(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    constexpr std::size_t n = sizeof...(P);
+    constexpr std::size_t i = K / n;
+    constexpr std::size_t j = K % n;
+
+    return try_rebind_validator_2<i, j, P...>(ti, stor, slot, pack);
+}
+
+template<typename ...P, std::size_t ...K>
+inline bool rebind_validator_dispatch_2(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+    ,std::index_sequence<K...>
+) {
+    return (... || try_rebind_validator_2_flat<K, P...>(ti, stor, slot, pack));
+}
+
+template<std::size_t I, std::size_t J, std::size_t L, typename ...P>
+inline bool try_rebind_validator_3(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    if constexpr ( I == J || I == L || J == L ) {
+        (void)ti;
+        (void)stor;
+        (void)slot;
+        (void)pack;
+
+        return false;
+    } else {
+        using Ev = validator_with_deps<
+             pack_option_t<I, P...>
+            ,pack_option_t<J, P...>
+            ,pack_option_t<L, P...>
+        >;
+
+        if ( ti != typeid(Ev) ) {
+            return false;
+        }
+
+        auto &v = *static_cast<Ev *>(stor.storage_obj_void());
+        slot = std::function<bool(std::string_view)>{
+            [&v, &pack](std::string_view s) noexcept -> bool {
+                return v.call(s, pack);
+            }
+        };
+
+        return true;
+    }
+}
+
+template<std::size_t Flat, typename ...P>
+inline bool try_rebind_validator_3_flat(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    constexpr std::size_t n = sizeof...(P);
+    constexpr std::size_t i = Flat / (n * n);
+    constexpr std::size_t j = (Flat / n) % n;
+    constexpr std::size_t k = Flat % n;
+
+    return try_rebind_validator_3<i, j, k, P...>(ti, stor, slot, pack);
+}
+
+template<typename ...P, std::size_t ...K>
+inline bool rebind_validator_dispatch_3(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+    ,std::index_sequence<K...>
+) {
+    return (... || try_rebind_validator_3_flat<K, P...>(ti, stor, slot, pack));
+}
+
+template<typename ...P>
+inline bool rebind_validator_storage_into(
+     deps_storage_base *stor
+    ,std::function<bool(std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    if ( !stor ) {
+        return false;
+    }
+
+    const std::type_info &ti = stor->storage_type();
+    deps_storage_base &s = *stor;
+    constexpr std::size_t n = sizeof...(P);
+
+    if ( rebind_validator_dispatch_1<P...>(ti, s, slot, pack, std::make_index_sequence<n>{}) ) {
+        return true;
+    }
+
+#if CMDARGS_MAX_OPTION_DEPS >= 2
+    if constexpr ( n >= 2u ) {
+        if ( rebind_validator_dispatch_2<P...>(
+                ti, s, slot, pack, std::make_index_sequence<n * n>{}
+            ) )
+        {
+            return true;
+        }
+    }
+#endif
+
+#if CMDARGS_MAX_OPTION_DEPS >= 3
+    if constexpr ( n >= 3u ) {
+        if ( rebind_validator_dispatch_3<P...>(
+                ti, s, slot, pack, std::make_index_sequence<n * n * n>{}
+            ) )
+        {
+            return true;
+        }
+    }
+#endif
+
+    return false;
+}
+
+template<typename V, std::size_t I, typename ...P>
+inline bool try_rebind_converter_1(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    using Ec = converter_with_deps<V, pack_option_t<I, P...>>;
+
+    if ( ti != typeid(Ec) ) {
+        return false;
+    }
+
+    auto &c = *static_cast<Ec *>(stor.storage_obj_void());
+    slot = std::function<bool(V &, std::string_view)>{
+        [&c, &pack](V &dst, std::string_view s) -> bool {
+            return c.call(dst, s, pack);
+        }
+    };
+
+    return true;
+}
+
+template<typename V, typename ...P, std::size_t ...I>
+inline bool rebind_converter_dispatch_1(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+    ,std::index_sequence<I...>
+) {
+    return (... || try_rebind_converter_1<V, I, P...>(ti, stor, slot, pack));
+}
+
+template<typename V, std::size_t I, std::size_t J, typename ...P>
+inline bool try_rebind_converter_2(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    if constexpr ( I == J ) {
+        (void)ti;
+        (void)stor;
+        (void)slot;
+        (void)pack;
+
+        return false;
+    } else {
+        using Ec = converter_with_deps<
+             V
+            ,pack_option_t<I, P...>
+            ,pack_option_t<J, P...>
+        >;
+
+        if ( ti != typeid(Ec) ) {
+            return false;
+        }
+
+        auto &c = *static_cast<Ec *>(stor.storage_obj_void());
+        slot = std::function<bool(V &, std::string_view)>{
+            [&c, &pack](V &dst, std::string_view s) -> bool {
+                return c.call(dst, s, pack);
+            }
+        };
+
+        return true;
+    }
+}
+
+template<typename V, std::size_t K, typename ...P>
+inline bool try_rebind_converter_2_flat(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    constexpr std::size_t n = sizeof...(P);
+    constexpr std::size_t i = K / n;
+    constexpr std::size_t j = K % n;
+
+    return try_rebind_converter_2<V, i, j, P...>(ti, stor, slot, pack);
+}
+
+template<typename V, typename ...P, std::size_t ...K>
+inline bool rebind_converter_dispatch_2(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+    ,std::index_sequence<K...>
+) {
+    return (... || try_rebind_converter_2_flat<V, K, P...>(ti, stor, slot, pack));
+}
+
+template<typename V, std::size_t I, std::size_t J, std::size_t L, typename ...P>
+inline bool try_rebind_converter_3(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    if constexpr ( I == J || I == L || J == L ) {
+        (void)ti;
+        (void)stor;
+        (void)slot;
+        (void)pack;
+
+        return false;
+    } else {
+        using Ec = converter_with_deps<
+             V
+            ,pack_option_t<I, P...>
+            ,pack_option_t<J, P...>
+            ,pack_option_t<L, P...>
+        >;
+
+        if ( ti != typeid(Ec) ) {
+            return false;
+        }
+
+        auto &c = *static_cast<Ec *>(stor.storage_obj_void());
+        slot = std::function<bool(V &, std::string_view)>{
+            [&c, &pack](V &dst, std::string_view s) -> bool {
+                return c.call(dst, s, pack);
+            }
+        };
+
+        return true;
+    }
+}
+
+template<typename V, std::size_t Flat, typename ...P>
+inline bool try_rebind_converter_3_flat(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    constexpr std::size_t n = sizeof...(P);
+    constexpr std::size_t i = Flat / (n * n);
+    constexpr std::size_t j = (Flat / n) % n;
+    constexpr std::size_t k = Flat % n;
+
+    return try_rebind_converter_3<V, i, j, k, P...>(ti, stor, slot, pack);
+}
+
+template<typename V, typename ...P, std::size_t ...K>
+inline bool rebind_converter_dispatch_3(
+     const std::type_info &ti
+    ,deps_storage_base &stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+    ,std::index_sequence<K...>
+) {
+    return (... || try_rebind_converter_3_flat<V, K, P...>(ti, stor, slot, pack));
+}
+
+template<typename V, typename ...P>
+inline bool rebind_converter_storage_into(
+     deps_storage_base *stor
+    ,std::function<bool(V &, std::string_view)> &slot
+    ,args_pack<P...> &pack
+) {
+    if ( !stor ) {
+        return false;
+    }
+
+    const std::type_info &ti = stor->storage_type();
+    deps_storage_base &s = *stor;
+    constexpr std::size_t n = sizeof...(P);
+
+    if ( rebind_converter_dispatch_1<V, P...>(ti, s, slot, pack, std::make_index_sequence<n>{}) ) {
+        return true;
+    }
+
+#if CMDARGS_MAX_OPTION_DEPS >= 2
+    if constexpr ( n >= 2u ) {
+        if ( rebind_converter_dispatch_2<V, P...>(
+                ti, s, slot, pack, std::make_index_sequence<n * n>{}
+            ) )
+        {
+            return true;
+        }
+    }
+#endif
+
+#if CMDARGS_MAX_OPTION_DEPS >= 3
+    if constexpr ( n >= 3u ) {
+        if ( rebind_converter_dispatch_3<V, P...>(
+                ti, s, slot, pack, std::make_index_sequence<n * n * n>{}
+            ) )
+        {
+            return true;
+        }
+    }
+#endif
+
+    return false;
+}
+
+} // namespace details
 
 /*************************************************************************************************/
 
@@ -1796,14 +2545,11 @@ auto make_args(Args && ...args) {
 
 /*************************************************************************************************/
 
-template<typename ...Args>
-std::ostream& to_file(std::ostream &os, const args_pack<Args...> &args, bool inited_only = true) {
-    const auto flags = os.flags();
-    os << std::boolalpha;
-
+template<typename OS, typename ...Args>
+OS& to_file(OS &os, const args_pack<Args...> &args, bool inited_only = true) {
     args.for_each(
         [&os](const auto &item) {
-            os << "# " << item.description() << std::endl;
+            os << "# " << item.description() << details::endl;
             os << item.name() << "=";
             bool is_set = item.is_set();
             bool has_default = item.has_default();
@@ -1819,20 +2565,18 @@ std::ostream& to_file(std::ostream &os, const args_pack<Args...> &args, bool ini
                     os << " (D)";
                 }
             }
-            os << std::endl;
+            os << details::endl;
 
             return true;
         }
         ,inited_only
     );
 
-    os.flags(flags);
-
     return os;
 }
 
-template<typename ...Args>
-auto& from_file(std::string *emsg, std::istream &is, args_pack<Args...> &args) {
+template<typename IS, typename ...Args>
+auto& from_file(std::string *emsg, IS &is, args_pack<Args...> &args) {
     std::vector<std::string> lines;
     for ( std::string line; std::getline(is, line); ) {
         details::trim(line);
@@ -1858,7 +2602,8 @@ auto& from_file(std::string *emsg, std::istream &is, args_pack<Args...> &args) {
 }
 
 template<
-     typename ...Args
+     typename IS
+    ,typename ...Args
     ,typename = typename std::enable_if_t<
         sizeof...(Args) != 1 && !std::is_base_of_v<
              kwords_group
@@ -1866,15 +2611,15 @@ template<
         >
     >
 >
-auto from_file(std::string *emsg, std::istream &is, const Args & ...kwords) {
+auto from_file(std::string *emsg, IS &is, const Args & ...kwords) {
     args_pack<typename std::decay_t<Args>...> args{kwords...};
     from_file(emsg, is, args);
 
     return args;
 }
 
-template<typename ...Args>
-auto from_file(std::string *emsg, std::istream &is, const std::tuple<Args...> &kwords) {
+template<typename IS, typename ...Args>
+auto from_file(std::string *emsg, IS &is, const std::tuple<Args...> &kwords) {
     args_pack<typename std::decay_t<Args>...> args{std::get<Args>(kwords)...};
     from_file(emsg, is, args);
 
@@ -1882,13 +2627,14 @@ auto from_file(std::string *emsg, std::istream &is, const std::tuple<Args...> &k
 }
 
 template<
-     typename KWords
+     typename IS
+    ,typename KWords
     ,typename = typename std::enable_if_t<
         std::is_class_v<KWords> &&
         std::is_base_of_v<kwords_group, KWords>
     >
 >
-auto from_file(std::string *emsg, std::istream &is, const KWords &kw) {
+auto from_file(std::string *emsg, IS &is, const KWords &kw) {
     const auto &tuple = details::to_tuple(kw);
 
     return from_file(emsg, is, tuple);
@@ -1896,11 +2642,11 @@ auto from_file(std::string *emsg, std::istream &is, const KWords &kw) {
 
 /*************************************************************************************************/
 
-template<typename ...Args>
-std::ostream& show_help(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
+template<typename OS, typename ...Args>
+OS& show_help(OS &os, const char *argv0, const args_pack<Args...> &args) {
     const auto pos = std::string_view{argv0}.rfind(details::path_separator);
     const char *p  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
-    os << p << ":" << std::endl;
+    os << p << ":" << details::endl;
 
     std::size_t max_len = 0;
     args.for_each(
@@ -1942,7 +2688,7 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args_pack<Arg
             if ( !not_list.empty() ) {
                 os << ", not(" << details::cat_vector("--", not_list) << ")";
             }
-            os << ")" << std::endl;
+            os << ")" << details::endl;
 
             return true;
         }
@@ -1952,21 +2698,22 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const args_pack<Arg
     return os;
 }
 
-template<typename ...Args>
-std::ostream& show_help(std::ostream &os, const char *argv0, const std::tuple<Args...> &kwords) {
+template<typename OS, typename ...Args>
+OS & show_help(OS &os, const char *argv0, const std::tuple<Args...> &kwords) {
     args_pack<typename std::decay_t<Args>...> args{std::get<Args>(kwords)...};
 
     return show_help(os, argv0, args);
 }
 
 template<
-     typename KWords
+     typename OS
+    ,typename KWords
     ,typename = typename std::enable_if_t<
         std::is_class_v<KWords> &&
         std::is_base_of_v<kwords_group, KWords>
     >
 >
-std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
+OS& show_help(OS &os, const char *argv0, const KWords &kw) {
     const auto &tuple = details::to_tuple(kw);
 
     return show_help(os, argv0, tuple);
@@ -1976,17 +2723,18 @@ std::ostream& show_help(std::ostream &os, const char *argv0, const KWords &kw) {
 // for debug purposes
 
 template<
-     typename KWords
+     typename OS
+    ,typename KWords
     ,typename = typename std::enable_if_t<
         std::is_class_v<KWords> &&
         std::is_base_of_v<kwords_group, KWords>
     >
 >
-std::ostream& dump_group(std::ostream &os, const KWords &kw) {
+OS& dump_group(OS &os, const KWords &kw) {
     const auto &tuple = details::to_tuple(kw);
     std::apply(
         [&os](auto&&... args) {
-            ((args.dump(os) << "*******************************************" << std::endl), ...);
+            ((args.dump(os) << "*******************************************" << details::endl), ...);
         }
         ,tuple
     );
@@ -1994,11 +2742,11 @@ std::ostream& dump_group(std::ostream &os, const KWords &kw) {
     return os;
 }
 
-template<typename ...Types>
-std::ostream& dump_group(std::ostream &os, const args_pack<Types...> &args) {
+template<typename OS, typename ...Types>
+OS& dump_group(OS &os, const args_pack<Types...> &args) {
     args.for_each(
         [&os](const auto &it){
-            it.dump(os) << "*******************************************" << std::endl;
+            it.dump(os) << "*******************************************" << details::endl;
             return true;
         }
     );
@@ -2008,9 +2756,9 @@ std::ostream& dump_group(std::ostream &os, const args_pack<Types...> &args) {
 
 /*************************************************************************************************/
 
-template<typename ...Args>
-bool is_help_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
-    if constexpr ( args.template contains<details::help_option_type>() ) {
+template<typename OS, typename ...Args>
+bool is_help_requested(OS &os, const char *argv0, const args_pack<Args...> &args) {
+    if constexpr ( args_pack<Args...>::template contains<details::help_option_type>() ) {
         if ( args.template is_set<details::help_option_type>() ) {
             show_help(os, argv0, args);
 
@@ -2021,13 +2769,13 @@ bool is_help_requested(std::ostream &os, const char *argv0, const args_pack<Args
     return false;
 }
 
-template<typename ...Args>
-bool is_version_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
-    if constexpr ( args.template contains<details::version_option_type>() ) {
+template<typename OS, typename ...Args>
+bool is_version_requested(OS &os, const char *argv0, const args_pack<Args...> &args) {
+    if constexpr ( args_pack<Args...>::template contains<details::version_option_type>() ) {
         if ( args.template is_set<details::version_option_type>() ) {
             const auto pos = std::string_view{argv0}.rfind(details::path_separator);
             const auto ptr  = (pos != std::string_view::npos ? argv0+pos+1 : argv0);
-            os << ptr << ": version - " << args.template get<details::version_option_type>() << std::endl;
+            os << ptr << ": version - " << args.template get<details::version_option_type>() << details::endl;
 
             return true;
         }
@@ -2036,15 +2784,18 @@ bool is_version_requested(std::ostream &os, const char *argv0, const args_pack<A
     return false;
 }
 
-template<typename ...Args>
-bool is_help_or_version_requested(std::ostream &os, const char *argv0, const args_pack<Args...> &args) {
+template<typename OS, typename ...Args>
+bool is_help_or_version_requested(OS &os, const char *argv0, const args_pack<Args...> &args) {
     return is_help_requested(os, argv0, args) || is_version_requested(os, argv0, args);
 }
 
 /*************************************************************************************************/
 
 #define CMDARGS_OPTION(OPTION_NAME, OPTION_TYPE, OPTION_DESCRIPTION, ...) \
-    const ::cmdargs::option<struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX), OPTION_TYPE> \
+    const ::cmdargs::option<\
+        struct __CMDARGS_CAT(OPTION_NAME, __CMDARGS__OPTION_SUFFIX)\
+        , OPTION_TYPE\
+    > \
         OPTION_NAME{OPTION_DESCRIPTION, std::make_tuple(__VA_ARGS__)}
 
 #define CMDARGS_OPTION_HELP() \
@@ -2058,5 +2809,3 @@ bool is_help_or_version_requested(std::ostream &os, const char *argv0, const arg
 /*************************************************************************************************/
 
 } // ns cmdargs
-
-#endif // __CMDARGS__CMDARGS_HPP

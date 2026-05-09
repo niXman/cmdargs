@@ -28,10 +28,11 @@
 #   define CMDARGS_MAX_OPTIONS_SIZE 32
 #endif
 
-#include <cmdargs/cmdargs.hpp>
-
 #include <iostream>
 #include <sstream>
+
+#include <cmdargs/cmdargs.hpp>
+
 #include <cassert>
 
 #ifdef NDEBUG
@@ -765,8 +766,8 @@ static void test_cond_or_00() {
 
 static void test_cond_not_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -864,8 +865,8 @@ static void test_cond_not_00() {
 
 static void test_default_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -1108,16 +1109,129 @@ static void test_converter_00() {
 
 /*************************************************************************************************/
 
+static void test_validator_with_deps_00() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION(flag, bool, "flag", optional);
+        CMDARGS_OPTION(s, std::string, "s", optional
+            ,validator_([](std::string_view sv, const std::optional<bool> &f) {
+                if ( f.value_or(false) && sv.empty() ) {
+                    return false;
+                }
+                return !sv.empty();
+            }, flag)
+        );
+    } const kwords;
+
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--flag=true"
+            ,"--s=hi"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
+        assert(emsg.empty());
+        assert(args[kwords.s] == "hi");
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--flag=true"
+            ,"--s="
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
+        (void)args;
+        assert(!emsg.empty());
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--s=ok"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
+        assert(emsg.empty());
+        assert(args[kwords.s] == "ok");
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_converter_with_deps_00() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION(scale, std::string, "scale", optional, default_(std::string("1")));
+        CMDARGS_OPTION(n, std::int32_t, "n", optional
+            ,converter_([](std::int32_t &v, std::string_view sv, const std::optional<std::string> &sc) {
+                cmdargs::details::from_string_impl(&v, sv);
+                if ( sc.value_or("1") == "2" ) {
+                    v *= 2;
+                }
+                return true;
+            }, scale)
+        );
+    } const kwords;
+
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--n=21"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
+        assert(emsg.empty());
+        assert(args[kwords.n] == 21);
+    }
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char * const margv[] = {
+             "cmdargs-test"
+            ,"--scale=2"
+            ,"--n=21"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+        #pragma GCC diagnostic pop
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(&emsg, margc, margv, kwords);
+        assert(emsg.empty());
+        assert(args[kwords.n] == 42);
+    }
+}
+
+/*************************************************************************************************/
+
 static void test_default_value_v2() {
     struct: cmdargs::kwords_group {
         CMDARGS_OPTION(netsrc, std::string, "network source name"
             ,optional
-            ,not_(filesrc)
+            ,not_name("filesrc")
             ,default_<std::string>("127.0.0.1")
         );
         CMDARGS_OPTION(filesrc, std::string, "file source name"
             ,optional
-            ,not_(netsrc)
+            ,not_name("netsrc")
             ,default_<std::string>("data.txt")
         );
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
@@ -1163,8 +1277,8 @@ static void test_default_value_v2() {
 
 static void test_to_file_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_name("netsrc"));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -1240,8 +1354,8 @@ fmode=read
 
 static void test_from_file_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -1303,8 +1417,8 @@ fmode=read
 
 static void test_show_help_and_version_00() {
     struct: cmdargs::kwords_group {
-        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+        CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -1359,8 +1473,8 @@ R"(test:
     // help
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
             CMDARGS_OPTION_HELP();
             CMDARGS_OPTION_VERSION("0.0.1");
@@ -1400,8 +1514,8 @@ R"(cmdargs-test:
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
             CMDARGS_OPTION_HELP();
             CMDARGS_OPTION_VERSION("0.0.1");
@@ -1435,8 +1549,8 @@ R"(cmdargs-test:
     // version
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
             CMDARGS_OPTION_HELP();
             CMDARGS_OPTION_VERSION("0.0.1");
@@ -1470,8 +1584,8 @@ R"(cmdargs-test:
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
             CMDARGS_OPTION_HELP();
             CMDARGS_OPTION_VERSION("0.0.1");
@@ -1512,8 +1626,8 @@ R"(cmdargs-test: version - 0.0.1
     // help or version
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
             CMDARGS_OPTION_HELP();
             CMDARGS_OPTION_VERSION("0.0.1");
@@ -1544,8 +1658,8 @@ R"(cmdargs-test: version - 0.0.1
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
             CMDARGS_OPTION_HELP();
             CMDARGS_OPTION_VERSION("0.0.1");
@@ -1586,8 +1700,8 @@ R"(cmdargs-test:
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source size", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
             CMDARGS_OPTION_HELP();
             CMDARGS_OPTION_VERSION("0.0.1");
@@ -1628,8 +1742,8 @@ R"(cmdargs-test: version - 0.0.1
 static void test_predefined_converters() {
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION(fileslist, std::vector<std::string>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("fileslist"));
+            CMDARGS_OPTION(fileslist, std::vector<std::string>, "source files list", optional, not_name("netsrc")
                 ,convert_as_vector<std::string>()
             );
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
@@ -1666,8 +1780,8 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION(fileslist, std::vector<std::size_t>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("fileslist"));
+            CMDARGS_OPTION(fileslist, std::vector<std::size_t>, "source files list", optional, not_name("netsrc")
                 ,convert_as_vector<std::size_t>()
             );
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
@@ -1704,8 +1818,8 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION(fileslist, std::list<std::string>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("fileslist"));
+            CMDARGS_OPTION(fileslist, std::list<std::string>, "source files list", optional, not_name("netsrc")
                 ,convert_as_list<std::string>()
             );
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
@@ -1742,8 +1856,8 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
-            CMDARGS_OPTION(fileslist, std::set<std::string>, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("fileslist"));
+            CMDARGS_OPTION(fileslist, std::set<std::string>, "source files list", optional, not_name("netsrc")
                                ,convert_as_set<std::string>()
                                );
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
@@ -1780,9 +1894,9 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("fileslist"));
             using map_type = std::map<std::string, std::string>;
-            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_name("netsrc")
                 ,convert_as_map<map_type::key_type, map_type::mapped_type>()
             );
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
@@ -1819,9 +1933,9 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("fileslist"));
             using map_type = std::map<std::size_t, std::string>;
-            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_name("netsrc")
                 ,convert_as_map<map_type::key_type, map_type::mapped_type>()
             );
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
@@ -1858,9 +1972,9 @@ static void test_predefined_converters() {
     }
     {
         struct: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(fileslist));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("fileslist"));
             using map_type = std::map<std::size_t, std::size_t>;
-            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_(netsrc)
+            CMDARGS_OPTION(fileslist, map_type, "source files list", optional, not_name("netsrc")
                 ,convert_as_map<map_type::key_type, map_type::mapped_type>()
             );
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, fileslist));
@@ -1901,8 +2015,8 @@ static void test_predefined_converters() {
 
 static void test_as_optionals() {
     struct kwords: cmdargs::kwords_group {
-        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_name("netsrc"));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -1942,8 +2056,8 @@ static void test_as_optionals() {
 
 static void test_as_values() {
     struct kwords: cmdargs::kwords_group {
-        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+        CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+        CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_name("netsrc"));
         CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
     } const kwords;
 
@@ -2004,8 +2118,8 @@ static void test_version() {
 static void test_dump() {
     {
         struct kwords: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
         } const kwords;
 
@@ -2052,8 +2166,8 @@ relation     NOT: 0
     }
     {
         struct kwords: cmdargs::kwords_group {
-            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_(filesrc));
-            CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_(netsrc));
+            CMDARGS_OPTION(netsrc, std::string, "network source name", optional, not_name("filesrc"));
+            CMDARGS_OPTION(filesrc, std::string, "file source name", optional, not_name("netsrc"));
             CMDARGS_OPTION(fmode, std::string, "processing mode", or_(netsrc, filesrc));
         } const kwords;
 
@@ -2218,7 +2332,11 @@ static void test_max_options() {
 /*************************************************************************************************/
 
 #define TEST(func) \
-    { std::cout << "test for " #func "..." << std::flush; func(); std::cout << "passed!" << std::endl; }
+    do { \
+        std::cout << "[" << __COUNTER__ << "] test for " #func "..." << std::flush; \
+        (func)(); \
+        std::cout << "passed!" << std::endl; \
+    } while (0)
 
 int main(int, char **) {
     TEST(test_templates);
@@ -2245,6 +2363,10 @@ int main(int, char **) {
     TEST(test_validator_00);
 
     TEST(test_converter_00);
+
+    TEST(test_validator_with_deps_00);
+
+    TEST(test_converter_with_deps_00);
 
     TEST(test_default_value_v2);
 
