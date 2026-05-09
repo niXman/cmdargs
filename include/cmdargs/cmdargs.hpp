@@ -212,16 +212,17 @@ using is_braces_constructible_n =
 template<class T, std::size_t L = 0u, std::size_t R = sizeof(T) + 1u>
 constexpr std::size_t to_tuple_size_impl() {
     constexpr std::size_t M = (L + R) / 2u;
-    return (M == 0)
-        ? std::is_empty<T>{}
-            ? 0u
-            : throw "Unable to determine number of elements"
-        : (L == M)
-            ? M
-            : is_braces_constructible_n<T, M>{}
-                ? to_tuple_size_impl<T, M, R>()
-                : to_tuple_size_impl<T, L, M>()
-    ;
+    if constexpr ( M == 0 ) {
+        static_assert(std::is_empty_v<T>, "Unable to determine number of elements");
+
+        return 0u;
+    } else if constexpr ( L == M ) {
+        return M;
+    } else if constexpr ( is_braces_constructible_n<T, M>{} ) {
+        return to_tuple_size_impl<T, M, R>();
+    } else {
+        return to_tuple_size_impl<T, L, M>();
+    }
 }
 
 template<typename T>
