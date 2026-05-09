@@ -1,3 +1,5 @@
+[![CI](https://github.com/niXman/cmdargs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/niXman/cmdargs/actions/workflows/ci.yml)
+
 # Cmdargs
 Command-line and config files parsing single header-file library for C++17.
 
