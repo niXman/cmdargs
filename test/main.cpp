@@ -309,6 +309,43 @@ static void test_decl_05() {
     CMDARGS_ASSERT(kwords.fsize.not_list().empty() == false);
 }
 
+static void test_decl_06() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION(cmd, std::string, "verb", positional);
+        CMDARGS_OPTION(package, std::string, "package name", optional, positional);
+        CMDARGS_OPTION(repo, std::string, "CDN URL", optional);
+    } const kwords;
+
+    CMDARGS_ASSERT(kwords.cmd.is_required() == true);
+    CMDARGS_ASSERT(kwords.cmd.is_optional() == false);
+    CMDARGS_ASSERT(kwords.cmd.is_positional() == true);
+    CMDARGS_ASSERT(kwords.cmd.is_set() == false);
+    CMDARGS_ASSERT(kwords.package.is_required() == false);
+    CMDARGS_ASSERT(kwords.package.is_optional() == true);
+    CMDARGS_ASSERT(kwords.package.is_positional() == true);
+    CMDARGS_ASSERT(kwords.package.is_set() == false);
+    CMDARGS_ASSERT(kwords.repo.is_required() == false);
+    CMDARGS_ASSERT(kwords.repo.is_optional() == true);
+    CMDARGS_ASSERT(kwords.repo.is_positional() == false);
+    CMDARGS_ASSERT(kwords.repo.has_short() == false);
+    CMDARGS_ASSERT(kwords.repo.is_set() == false);
+}
+
+static void test_decl_07() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION(yes, bool, "assume yes", optional, short_('y'));
+        CMDARGS_OPTION(connections, std::size_t, "max connections", optional, short_('c'));
+        CMDARGS_OPTION_HELP();
+    } const kwords;
+
+    CMDARGS_ASSERT(kwords.yes.has_short() == true);
+    CMDARGS_ASSERT(kwords.yes.short_name() == 'y');
+    CMDARGS_ASSERT(kwords.connections.has_short() == true);
+    CMDARGS_ASSERT(kwords.connections.short_name() == 'c');
+    CMDARGS_ASSERT(kwords.help.has_short() == true);
+    CMDARGS_ASSERT(kwords.help.short_name() == 'h');
+}
+
 /*************************************************************************************************/
 
 static void test_string_trim() {
@@ -1044,6 +1081,481 @@ static void test_converter_00() {
 
 /*************************************************************************************************/
 
+static void test_positional_00() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION(cmd, std::string, "verb", positional);
+        CMDARGS_OPTION(package, std::string, "package name", optional, positional);
+        CMDARGS_OPTION(repo, std::string, "CDN URL", optional);
+    } const kwords;
+
+    {
+        std::ostringstream os;
+        cmdargs::show_help(os, "/test", kwords);
+
+        static const char *expected =
+R"(test:
+cmd=*    : "verb" (std::string, required)
+package=*: "package name" (std::string, optional)
+--repo=* : "CDN URL" (std::string, optional)
+)";
+
+        CMDARGS_ASSERT(os.str() == expected);
+    }
+    {
+        const char * const margv[] = {
+            "cmdargs-test"
+            ,"install"
+            ,"gdb"
+            ,"--repo=https://cdn.example"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.cmd] == "install");
+        CMDARGS_ASSERT(args[kwords.package] == "gdb");
+        CMDARGS_ASSERT(args[kwords.repo] == "https://cdn.example");
+
+        std::ostringstream os;
+        cmdargs::show_help(os, "/test", args);
+
+        static const char *expected =
+R"(test:
+cmd=install: "verb" (std::string, required)
+package=gdb: "package name" (std::string, optional)
+--repo=*   : "CDN URL" (std::string, optional)
+)";
+
+        CMDARGS_ASSERT(os.str() == expected);
+    }
+    {
+        const char * const margv[] = {
+            "cmdargs-test"
+            ,"--repo=https://cdn.example"
+            ,"install"
+            ,"gdb"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.cmd] == "install");
+        CMDARGS_ASSERT(args[kwords.package] == "gdb");
+        CMDARGS_ASSERT(args[kwords.repo] == "https://cdn.example");
+    }
+    {
+        const char * const margv[] = {
+            "cmdargs-test"
+            ,"install"
+            ,"gdb"
+            ,"extra"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "there is an extra \"extra\" positional was specified");
+    }
+    {
+        const char * const margv[] = {
+            "cmdargs-test"
+            ,"--repo=https://cdn.example"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "no required \"cmd\" option was specified");
+    }
+    {
+        const char * const margv[] = {
+            "cmdargs-test"
+            ,"--cmd=install"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "\"--cmd\" is positional");
+    }
+    {
+        static const char *src =
+R"(cmd=install
+package=gdb
+repo=https://cdn.example
+)";
+        std::istringstream is{src};
+        std::string emsg;
+        auto args = cmdargs::from_file(&emsg, is, kwords);
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.cmd] == "install");
+        CMDARGS_ASSERT(args[kwords.package] == "gdb");
+        CMDARGS_ASSERT(args[kwords.repo] == "https://cdn.example");
+    }
+}
+
+enum class test_command: std::uint32_t {
+    install
+    ,uninstall
+    ,upgrade
+    ,plan
+    ,update
+    ,list
+};
+
+static std::ostream &operator<<(std::ostream &os, test_command c) {
+    switch ( c ) {
+        case test_command::install: return os << "install";
+        case test_command::uninstall: return os << "uninstall";
+        case test_command::upgrade: return os << "upgrade";
+        case test_command::plan: return os << "plan";
+        case test_command::update: return os << "update";
+        case test_command::list: return os << "list";
+    }
+
+    return os;
+}
+
+static void test_positional_enum_00() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION(cmd, test_command, "command", positional
+            ,validator_([](std::string_view str) {
+                return str == "install"
+                    || str == "uninstall"
+                    || str == "upgrade"
+                    || str == "plan"
+                    || str == "update"
+                    || str == "list"
+                ;
+            })
+            ,converter_([](test_command &dst, std::string_view str) {
+                if ( str == "install" ) {
+                    dst = test_command::install;
+                } else if ( str == "uninstall" ) {
+                    dst = test_command::uninstall;
+                } else if ( str == "upgrade" ) {
+                    dst = test_command::upgrade;
+                } else if ( str == "plan" ) {
+                    dst = test_command::plan;
+                } else if ( str == "update" ) {
+                    dst = test_command::update;
+                } else if ( str == "list" ) {
+                    dst = test_command::list;
+                } else {
+                    return false;
+                }
+
+                return true;
+            })
+        );
+        CMDARGS_OPTION(package, std::string, "package name", optional, positional);
+        CMDARGS_OPTION(repo, std::string, "repository URL", optional);
+    } const kwords;
+
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"install"
+            ,"gdb"
+            ,"--repo=https://cdn.example"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.cmd] == test_command::install);
+        CMDARGS_ASSERT(args[kwords.package] == "gdb");
+        CMDARGS_ASSERT(args[kwords.repo] == "https://cdn.example");
+
+        std::ostringstream os;
+        cmdargs::show_help(os, "/test", args);
+        const auto help = os.str();
+        CMDARGS_ASSERT(help.find("--cmd") == std::string::npos);
+        CMDARGS_ASSERT(help.find("cmd=install") != std::string::npos);
+    }
+    {
+        const char * const names[] = {
+             "uninstall"
+            ,"upgrade"
+            ,"plan"
+            ,"update"
+            ,"list"
+        };
+        const test_command values[] = {
+             test_command::uninstall
+            ,test_command::upgrade
+            ,test_command::plan
+            ,test_command::update
+            ,test_command::list
+        };
+
+        for ( std::size_t i = 0; i < sizeof(names)/sizeof(names[0]); ++i ) {
+            const char * const margv[] = {
+                "cmdargs-test"
+                ,names[i]
+            };
+            int margc = sizeof(margv)/sizeof(margv[0]);
+
+            std::string emsg;
+            auto args = cmdargs::parse_args(
+                 &emsg
+                ,margc
+                ,cmdargs_mutable_argv(margv)
+                ,kwords
+            );
+
+            CMDARGS_ASSERT(emsg.empty());
+            CMDARGS_ASSERT(args[kwords.cmd] == values[i]);
+            CMDARGS_ASSERT(args.is_set(kwords.package) == false);
+        }
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"publish"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "an invalid value \"publish\" was received for \"cmd\" option");
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"--cmd=install"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "\"--cmd\" is positional");
+    }
+}
+
+/*************************************************************************************************/
+
+static void test_short_00() {
+    struct: cmdargs::kwords_group {
+        CMDARGS_OPTION(cmd, std::string, "verb", positional);
+        CMDARGS_OPTION(yes, bool, "assume yes", optional, short_('y'));
+        CMDARGS_OPTION(verbose, bool, "verbose output", optional, short_('v'));
+        CMDARGS_OPTION(connections, std::size_t, "max connections", optional, short_('c'));
+        CMDARGS_OPTION_HELP();
+    } const kwords;
+
+    {
+        std::ostringstream os;
+        cmdargs::show_help(os, "/test", kwords);
+        const auto help = os.str();
+        CMDARGS_ASSERT(help.find("cmd=*") != std::string::npos);
+        CMDARGS_ASSERT(help.find("--cmd") == std::string::npos);
+        CMDARGS_ASSERT(help.find("-y, --yes=*") != std::string::npos);
+        CMDARGS_ASSERT(help.find("-v, --verbose=*") != std::string::npos);
+        CMDARGS_ASSERT(help.find("-c, --connections=*") != std::string::npos);
+        CMDARGS_ASSERT(help.find("-h, --help=*") != std::string::npos);
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"install"
+            ,"-y"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.cmd] == "install");
+        CMDARGS_ASSERT(args.is_set(kwords.yes));
+        CMDARGS_ASSERT(args[kwords.yes] == true);
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"install"
+            ,"-yv"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.cmd] == "install");
+        CMDARGS_ASSERT(args[kwords.yes] == true);
+        CMDARGS_ASSERT(args[kwords.verbose] == true);
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"install"
+            ,"-c=6"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.cmd] == "install");
+        CMDARGS_ASSERT(args[kwords.connections] == 6u);
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"install"
+            ,"-c"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "a value must be provided for \"-c\" option");
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"install"
+            ,"-z"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(!emsg.empty());
+        CMDARGS_ASSERT(emsg == "there is an extra \"-z\" option was specified");
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"-h"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        std::ostringstream os;
+        CMDARGS_ASSERT(cmdargs::is_help_requested(os, margv[0], args) == true);
+        CMDARGS_ASSERT(os.str().find("-h, --help=*") != std::string::npos);
+        CMDARGS_ASSERT(os.str().find("--cmd") == std::string::npos);
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"install"
+            ,"--yes"
+        };
+        int margc = sizeof(margv)/sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+
+        CMDARGS_ASSERT(emsg.empty());
+        CMDARGS_ASSERT(args[kwords.yes] == true);
+    }
+}
+
+/*************************************************************************************************/
+
 static void test_validator_with_deps_00() {
     struct: cmdargs::kwords_group {
         CMDARGS_OPTION(flag, bool, "flag", optional);
@@ -1411,9 +1923,9 @@ R"(test:
         CMDARGS_ASSERT(cmdargs::is_help_requested(os, margv[0], args) == true);
         static const char *expected =
 R"(cmdargs-test:
---filesrc=*: "file source size" (std::string, optional, not(--netsrc))
---fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
---help=*   : "show help message" (bool, optional)
+--filesrc=* : "file source size" (std::string, optional, not(--netsrc))
+--fmode=*   : "processing mode" (std::string, required, or(--netsrc, --filesrc))
+-h, --help=*: "show help message" (bool, optional)
 )";
         CMDARGS_ASSERT(os.str() == expected);
     }
@@ -1580,11 +2092,11 @@ R"(cmdargs-test: version - 0.0.1
 
         static const char *expected =
 R"(cmdargs-test:
---netsrc=* : "network source name" (std::string, optional, not(--filesrc))
---filesrc=*: "file source size" (std::string, optional, not(--netsrc))
---fmode=*  : "processing mode" (std::string, required, or(--netsrc, --filesrc))
---help=*   : "show help message" (bool, optional)
---version=*: "show version message" (std::string, optional, default="0.0.1")
+--netsrc=*  : "network source name" (std::string, optional, not(--filesrc))
+--filesrc=* : "file source size" (std::string, optional, not(--netsrc))
+--fmode=*   : "processing mode" (std::string, required, or(--netsrc, --filesrc))
+-h, --help=*: "show help message" (bool, optional)
+--version=* : "show version message" (std::string, optional, default="0.0.1")
 )";
         CMDARGS_ASSERT(os.str() == expected);
     }
@@ -2201,6 +2713,8 @@ int main(int, char **) {
     TEST(test_decl_03);
     TEST(test_decl_04);
     TEST(test_decl_05);
+    TEST(test_decl_06);
+    TEST(test_decl_07);
 
     TEST(test_string_trim);
 
@@ -2217,6 +2731,10 @@ int main(int, char **) {
     TEST(test_validator_00);
 
     TEST(test_converter_00);
+
+    TEST(test_positional_00);
+    TEST(test_positional_enum_00);
+    TEST(test_short_00);
 
     TEST(test_validator_with_deps_00);
 

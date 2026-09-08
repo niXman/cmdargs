@@ -3,7 +3,7 @@
 # Cmdargs
 Command-line and config files parsing single header-file library for C++17.
 
-Only long option names is supported.
+Long option names (`--name=value`), short option names (`-y`, `-h`), and positional arguments are supported.
 
 # The idea
 `Cmdargs` this is an attempt to implement the concept of `if the code is successfully compiled - it works correctly` and `no room for error` and `zero boilerplate code`.
@@ -11,7 +11,10 @@ Only long option names is supported.
 # Capabilities
 - default values for options
 - `optional` and `required` options.
+- positional arguments (filled in declaration order).
+- short option names via `short_('y')` (`-y`, clustered `-yh`, `-c=6`).
 - option relations: `and`, `or`, `not`.
+- custom validators and converters.
 - predefined converters for `std::vector`/`std::list`/`std::set`/`std::map`
 
 # Command line example
@@ -91,6 +94,64 @@ int main(int argc, char **argv) {
 
     const auto fname = args.get(kwords.fname);
     const auto fmode = args.get(kwords.fmode);
+}
+```
+
+```cpp
+// positional arguments and an enum with converter/validator
+
+enum class command {
+    install
+    ,uninstall
+    ,upgrade
+    ,plan
+    ,update
+    ,list
+};
+
+struct: cmdargs::kwords_group {
+    CMDARGS_OPTION(cmd, command, "command", positional
+        ,validator_([](std::string_view str) {
+            return str == "install"
+                || str == "uninstall"
+                || str == "upgrade"
+                || str == "plan"
+                || str == "update"
+                || str == "list"
+            ;
+        })
+        ,converter_([](command &dst, std::string_view str) {
+            if ( str == "install" ) { dst = command::install; }
+            else if ( str == "uninstall" ) { dst = command::uninstall; }
+            else if ( str == "upgrade" ) { dst = command::upgrade; }
+            else if ( str == "plan" ) { dst = command::plan; }
+            else if ( str == "update" ) { dst = command::update; }
+            else if ( str == "list" ) { dst = command::list; }
+            else { return false; }
+
+            return true;
+        })
+    )
+    CMDARGS_OPTION(package, std::string, "package name", optional, positional)
+    CMDARGS_OPTION(repo, std::string, "repository URL", optional)
+    CMDARGS_OPTION(yes, bool, "do not prompt", optional, short_('y'))
+    CMDARGS_OPTION_HELP()
+} const kwords;
+
+int main(int argc, char **argv) {
+    std::string emsg;
+    auto args = cmdargs::parse_args(&emsg, argc, argv, kwords);
+    if ( !emsg.empty() ) {
+        std::cout << "cmdline parse error: " << emsg << std::endl;
+
+        return EXIT_FAILURE;
+    }
+
+    // carbide-install install gdb --repo=https://cdn.example
+    const auto cmd = args.get(kwords.cmd);
+    if ( args.is_set(kwords.package) ) {
+        const auto package = args.get(kwords.package);
+    }
 }
 ```
 

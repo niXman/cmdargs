@@ -35,6 +35,7 @@
 #include <map>
 #include <tuple>
 #include <array>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -862,7 +863,29 @@ struct contains_default
 
 /*************************************************************************************************/
 
+struct short_name_t {
+    char name;
+};
+
+template<typename Unused, typename T>
+struct is_short_pred: std::false_type
+{};
+
+template<typename Unused>
+struct is_short_pred<Unused, short_name_t>
+    :std::true_type
+{};
+
+template<typename ...Types>
+struct contains_short
+    :contains<is_short_pred, char, Types...>
+{};
+
+/*************************************************************************************************/
+
 struct optional_option_t {};
+
+struct positional_option_t {};
 
 /*************************************************************************************************/
 
@@ -1133,6 +1156,8 @@ private:
     const std::string_view m_type_name;
     const std::string_view m_description;
     const bool m_is_required;
+    const bool m_is_positional;
+    const char m_short_name;
     const bool m_uses_custom_validator;
     validator_type m_validator;
     const bool m_uses_custom_converter;
@@ -1153,6 +1178,8 @@ public:
         :m_type_name{o.m_type_name}
         ,m_description{o.m_description}
         ,m_is_required{o.m_is_required}
+        ,m_is_positional{o.m_is_positional}
+        ,m_short_name{o.m_short_name}
         ,m_uses_custom_validator{o.m_uses_custom_validator}
         ,m_validator{o.m_validator}
         ,m_uses_custom_converter{o.m_uses_custom_converter}
@@ -1169,6 +1196,8 @@ public:
         :m_type_name{o.m_type_name}
         ,m_description{o.m_description}
         ,m_is_required{o.m_is_required}
+        ,m_is_positional{o.m_is_positional}
+        ,m_short_name{o.m_short_name}
         ,m_uses_custom_validator{o.m_uses_custom_validator}
         ,m_validator{std::move(o.m_validator)}
         ,m_uses_custom_converter{o.m_uses_custom_converter}
@@ -1191,6 +1220,8 @@ public:
         :m_type_name{details::type_name<value_type>()}
         ,m_description{descr}
         ,m_is_required{!details::contains<std::is_same, details::optional_option_t, Args...>::value}
+        ,m_is_positional{details::contains<std::is_same, details::positional_option_t, Args...>::value}
+        ,m_short_name{get_short_name(as_tuple)}
         ,m_uses_custom_validator{
             has_visitor<validator_type>(as_tuple)
             || !std::is_same_v<
@@ -1279,6 +1310,9 @@ public:
     const auto& get_default_value() const noexcept { return m_default_value.value(); }
     bool is_required() const noexcept { return m_is_required; }
     bool is_optional() const noexcept { return !is_required(); }
+    bool is_positional() const noexcept { return m_is_positional; }
+    bool has_short() const noexcept { return m_short_name != '\0'; }
+    char short_name() const noexcept { return m_short_name; }
     bool is_set() const noexcept { return m_value.has_value(); }
     const auto& get_value() const noexcept { return m_value.value(); }
     void set_value(value_type v) { m_value = std::move(v); }
@@ -1440,6 +1474,14 @@ private:
 
         return {};
     }
+    template<typename ...Types>
+    static char get_short_name(const std::tuple<Types...> &tuple) noexcept {
+        if constexpr ( details::contains_short<Types...>::value ) {
+            return std::get<details::short_name_t>(tuple).name;
+        }
+
+        return '\0';
+    }
 };
 
 /*************************************************************************************************/
@@ -1539,10 +1581,14 @@ struct kwords_group {
     kwords_group &operator=(const kwords_group &) = delete;
 
     static constexpr details::optional_option_t optional{};
+    static constexpr details::positional_option_t positional{};
 
     template<typename T>
     static auto default_(T &&v) noexcept
     { return details::default_t<T>{std::forward<T>(v)}; }
+
+    static constexpr details::short_name_t short_(char name) noexcept
+    { return details::short_name_t{name}; }
 
     template<typename ...Types>
     static auto and_(const Types &...args) noexcept
@@ -1882,6 +1928,23 @@ public:
             [&res, &name](const auto &item) {
                 if ( item.name() == name ) {
                     res = item.is_bool();
+                    return false;
+                }
+                return true;
+            }
+            ,false
+        );
+
+        return res;
+    }
+
+    bool is_positional_name(const std::string_view name) const {
+        bool res{};
+
+        for_each(
+            [&res, &name](const auto &item) {
+                if ( item.name() == name ) {
+                    res = item.is_positional();
                     return false;
                 }
                 return true;
@@ -2603,6 +2666,131 @@ inline bool rebind_converter_storage_into(
 
 /*************************************************************************************************/
 
+template<typename Pack>
+bool report_parse_error(std::string *emsg, std::string msg) {
+    if ( emsg ) {
+        *emsg = std::move(msg);
+    } else {
+        throw invalid_argument(msg);
+    }
+
+    return false;
+}
+
+template<typename Pack>
+bool apply_short_option(
+     std::string *emsg
+    ,char s
+    ,std::string_view val
+    ,bool has_val
+    ,Pack &args
+    ,bool &early_return
+) {
+    bool found = false;
+    std::string msg;
+    args.for_each(
+        [s, val, has_val, &found, &msg, &early_return](auto &item) {
+            if ( !item.has_short() || item.short_name() != s ) {
+                return true;
+            }
+            found = true;
+            if ( has_val ) {
+                if ( !item.validate(val) ) {
+                    msg = "an invalid value \"";
+                    msg += val;
+                    msg += "\" was received for \"-";
+                    msg += s;
+                    msg += "\" option";
+
+                    return false;
+                }
+                if ( !item.convert(val) ) {
+                    msg = "can't convert value \"";
+                    msg += val;
+                    msg += "\" for \"-";
+                    msg += s;
+                    msg += "\" option";
+
+                    return false;
+                }
+            } else {
+                if ( !item.is_bool() ) {
+                    msg = "a value must be provided for \"-";
+                    msg += s;
+                    msg += "\" option";
+
+                    return false;
+                }
+                static const std::string_view _true{"true"};
+                item.convert(_true);
+            }
+            if ( item.name() == details::help_option_type::name()
+                || item.name() == details::version_option_type::name() )
+            {
+                early_return = true;
+            }
+
+            return false;
+        }
+        ,false
+    );
+
+    if ( !msg.empty() ) {
+        return report_parse_error<Pack>(emsg, std::move(msg));
+    }
+    if ( !found ) {
+        std::string extra = "there is an extra \"-";
+        extra += s;
+        extra += "\" option was specified";
+
+        return report_parse_error<Pack>(emsg, std::move(extra));
+    }
+
+    return true;
+}
+
+template<typename Pack>
+bool parse_short_token(
+     std::string *emsg
+    ,std::string_view tok
+    ,Pack &args
+    ,bool &early_return
+) {
+    const auto body = tok.substr(1);
+    const auto eq = body.find('=');
+    if ( eq != std::string_view::npos ) {
+        if ( eq != 1 ) {
+            std::string extra = "there is an extra \"";
+            extra += tok;
+            extra += "\" option was specified";
+
+            return report_parse_error<Pack>(emsg, std::move(extra));
+        }
+
+        return apply_short_option(
+             emsg
+            ,body[0]
+            ,body.substr(2)
+            ,true
+            ,args
+            ,early_return
+        );
+    }
+
+    for ( const char s: body ) {
+        if ( !apply_short_option(emsg, s, {}, false, args, early_return) ) {
+            return false;
+        }
+        if ( early_return ) {
+            return true;
+        }
+    }
+
+    return true;
+}
+
+/*************************************************************************************************/
+
 template<typename Iter, typename ...Args>
 void parse_kv_list(
      std::string *emsg
@@ -2614,8 +2802,75 @@ void parse_kv_list(
 {
     for ( ; beg != end; ++beg ) {
         if ( pref ) {
-            std::string_view pref_sv{pref, pref_len};
-            if ( pref_sv.compare(0, pref_len, *beg, pref_len) != 0 ) {
+            std::string_view tok{*beg};
+            if ( tok.size() < pref_len || tok.compare(0, pref_len, pref, pref_len) != 0 ) {
+                tok = cmdargs::details::trim(tok);
+                if ( tok.size() >= 2 && tok[0] == '-' && tok[1] != '-' ) {
+                    bool early_return = false;
+                    if ( !parse_short_token(emsg, tok, args, early_return) ) {
+                        return;
+                    }
+                    if ( early_return ) {
+                        return;
+                    }
+
+                    continue;
+                }
+                std::string msg;
+                bool assigned = false;
+                args.for_each(
+                    [tok, &msg, &assigned](auto &item) {
+                        if ( assigned || !item.is_positional() || item.is_set() ) {
+                            return true;
+                        }
+                        assigned = true;
+                        if ( !item.validate(tok) ) {
+                            msg = "an invalid value \"";
+                            msg += tok;
+                            msg += "\" was received for \"";
+                            msg += item.name();
+                            msg += "\" option";
+
+                            return false;
+                        }
+                        if ( !item.convert(tok) ) {
+                            msg = "can't convert value \"";
+                            msg += tok;
+                            msg += "\" for \"";
+                            msg += item.name();
+                            msg += "\" option";
+
+                            return false;
+                        }
+
+                        return false;
+                    }
+                    ,false
+                );
+
+                if ( !msg.empty() ) {
+                    if ( emsg ) {
+                        *emsg = std::move(msg);
+                    } else {
+                        throw invalid_argument(msg);
+                    }
+
+                    return;
+                }
+                if ( !assigned ) {
+                    std::string extra = "there is an extra \"";
+                    extra += tok;
+                    extra += "\" positional was specified";
+
+                    if ( emsg ) {
+                        *emsg = std::move(extra);
+                    } else {
+                        throw invalid_argument(extra);
+                    }
+
+                    return;
+                }
+
                 continue;
             }
         }
@@ -2634,6 +2889,21 @@ void parse_kv_list(
             msg += (pref ? pref : "");
             msg += unexpected;
             msg += "\" option was specified";
+
+            if ( emsg ) {
+                *emsg = std::move(msg);
+            } else {
+                throw invalid_argument(msg);
+            }
+
+            return;
+        }
+
+        if ( pref && args.is_positional_name(key) ) {
+            std::string msg = "\"";
+            msg += pref;
+            msg += key;
+            msg += "\" is positional";
 
             if ( emsg ) {
                 *emsg = std::move(msg);
@@ -2739,7 +3009,9 @@ void parse_kv_list(
     auto required = args.check_for_required();
     if ( !required.empty() ) {
         std::string msg = "no required \"";
-        msg += (pref ? pref : "");
+        if ( pref && !args.is_positional_name(required) ) {
+            msg += pref;
+        }
         msg += required;
         msg += "\" option was specified";
 
@@ -2968,12 +3240,32 @@ auto from_file(std::string *emsg, IS &is, const KWords &kw) {
 
 template<typename OS, typename ...Args>
 OS& show_help(OS &os, const char *argv0, const args_pack<Args...> &args) {
+    auto format_left = [](auto &out, const auto &item) {
+        if ( item.has_short() ) {
+            out << '-' << item.short_name() << ", ";
+        }
+        if ( item.is_positional() ) {
+            out << item.name() << "=";
+            if ( item.is_set() ) {
+                out << item.get_value();
+            } else if ( item.has_default() ) {
+                out << item.get_default_value();
+            } else {
+                out << "*";
+            }
+        } else {
+            out << "--" << item.name() << "=*";
+        }
+    };
+
     os << details::argv0_basename(argv0) << ":" << details::endl;
 
     std::size_t max_len = 0;
     args.for_each(
-        [&max_len](const auto &item) {
-            std::size_t len = item.name().size();
+        [&max_len, &format_left](const auto &item) {
+            std::ostringstream tmp;
+            format_left(tmp, item);
+            const auto len = tmp.str().size();
             max_len = (len > max_len) ? len : max_len;
 
             return true;
@@ -2982,12 +3274,13 @@ OS& show_help(OS &os, const char *argv0, const args_pack<Args...> &args) {
     );
 
     args.for_each(
-        [&os, max_len](const auto &item) {
+        [&os, max_len, &format_left](const auto &item) {
             static const char ident[] = "                                        ";
-            std::string_view name = item.name();
-            std::size_t len = name.size();
-            os << "--" << name << "=*";
-            os.write(ident, static_cast<std::streamsize>(max_len - len));
+            std::ostringstream tmp;
+            format_left(tmp, item);
+            const auto left = tmp.str();
+            os << left;
+            os.write(ident, static_cast<std::streamsize>(max_len - left.size()));
             os
             << ": \"" << item.description()
             << "\" ("
@@ -3120,7 +3413,7 @@ bool is_help_or_version_requested(OS &os, const char *argv0, const args_pack<Arg
 
 #define CMDARGS_OPTION_HELP() \
     const ::cmdargs::details::help_option_type help{this, "show help message" \
-        ,std::make_tuple(optional)}
+        ,std::make_tuple(optional, short_('h'))}
 
 #define CMDARGS_OPTION_VERSION(str) \
     const ::cmdargs::details::version_option_type version{this, "show version message" \
