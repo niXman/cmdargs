@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_ASAN "Enable AddressSanitizer")
+option(ENABLE_REFLECTION "Build tests with C++26 reflection (-freflection)")
 option(TEST_MAX_OPTIONS "Enable test for max options number")
 
 if(ENABLE_ASAN AND NOT MSVC)
@@ -30,6 +31,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 elseif(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+endif()
+
+if(ENABLE_REFLECTION)
+    set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 26)
+    target_compile_options(${PROJECT_NAME} PRIVATE -freflection)
 endif()
 
 find_package(Threads REQUIRED)
