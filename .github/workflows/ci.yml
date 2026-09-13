@@ -38,18 +38,26 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
-windows-msvc-cl:
-  name: windows-msvc-cl
-  runs-on: windows-latest
-  steps:
-    - uses: actions/checkout@v4
-    - name: Configure
-      run: cmake -S test -B build -A x64
+  windows-msvc-cl:
+    name: windows-msvc-cl
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S test -B build -A x64
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
 
-windows-msvc-clang:
-  name: windows-msvc-clang
-  runs-on: windows-latest
-  steps:
-    - uses: actions/checkout@v4
-    - name: Configure
-      run: cmake -S test -B build -T ClangCL -A x64
+  windows-msvc-clang:
+    name: windows-msvc-clang
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S test -B build -T ClangCL -A x64
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
