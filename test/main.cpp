@@ -2467,6 +2467,84 @@ static void test_as_values() {
 
 /*************************************************************************************************/
 
+#ifdef CMDARGS_VIEWS_AVAIL
+static void test_view_00() {
+    struct kwords: cmdargs::kwords_group {
+        CMDARGS_OPTION(fname, std::string, "source file name", optional);
+        CMDARGS_OPTION(flag, bool, "flag", optional);
+        CMDARGS_OPTION(n, std::int32_t, "n", optional, default_(std::int32_t{6}));
+        CMDARGS_OPTION_HELP();
+    } const kwords;
+
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"--fname=hi"
+            ,"--flag=true"
+        };
+        int margc = sizeof(margv) / sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+        CMDARGS_ASSERT(emsg.empty());
+
+        cmdargs::view_t<decltype(kwords)> v = cmdargs::make_view(args, kwords);
+        static_assert(std::is_same_v<
+             decltype(v.fname)
+            ,const std::optional<std::string> &
+        >);
+        static_assert(std::is_same_v<
+             decltype(v.flag)
+            ,const std::optional<bool> &
+        >);
+        static_assert(std::is_same_v<
+             decltype(v.n)
+            ,const std::optional<std::int32_t> &
+        >);
+
+        CMDARGS_ASSERT(v.fname.has_value());
+        CMDARGS_ASSERT(v.fname.value() == "hi");
+        CMDARGS_ASSERT(v.flag.has_value());
+        CMDARGS_ASSERT(v.flag.value() == true);
+        CMDARGS_ASSERT(!v.n.has_value());
+        CMDARGS_ASSERT(args.get(kwords.n) == 6);
+
+        const auto v2 = cmdargs::make_view(args, kwords);
+        CMDARGS_ASSERT(v2.fname.value() == "hi");
+        CMDARGS_ASSERT(&v2.fname == &v.fname);
+    }
+    {
+        const char * const margv[] = {
+             "cmdargs-test"
+            ,"--n=21"
+        };
+        int margc = sizeof(margv) / sizeof(margv[0]);
+
+        std::string emsg;
+        auto args = cmdargs::parse_args(
+             &emsg
+            ,margc
+            ,cmdargs_mutable_argv(margv)
+            ,kwords
+        );
+        CMDARGS_ASSERT(emsg.empty());
+
+        const auto v = cmdargs::make_view(args, kwords);
+        CMDARGS_ASSERT(!v.fname.has_value());
+        CMDARGS_ASSERT(!v.flag.has_value());
+        CMDARGS_ASSERT(v.n.has_value());
+        CMDARGS_ASSERT(v.n.value() == 21);
+    }
+}
+#endif // CMDARGS_VIEWS_AVAIL
+
+/*************************************************************************************************/
+
 static void test_version() {
     constexpr auto version = CMDARGS_VERSION_HEX;
     constexpr auto major = CMDARGS_VERSION_GET_MAJOR(version);
@@ -2751,6 +2829,10 @@ int main(int, char **) {
 
     TEST(test_as_optionals);
     TEST(test_as_values);
+
+#ifdef CMDARGS_VIEWS_AVAIL
+    TEST(test_view_00);
+#endif
 
     TEST(test_version);
 

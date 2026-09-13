@@ -16,12 +16,45 @@ jobs:
       CXX: g++
     steps:
       - uses: actions/checkout@v4
+      - &detect-reflection
+        name: Detect reflection
+        id: reflection
+        run: |
+          set -eu
+          cxx="${CXX:-c++}"
+          src="${RUNNER_TEMP}/cmdargs-refl-probe.cpp"
+          bin="${RUNNER_TEMP}/cmdargs-refl-probe"
+          printf '%s\n' \
+            '#if !(defined(__cpp_impl_reflection) && __cpp_impl_reflection >= 202506L && __has_include(<meta>))' \
+            '#error reflection is not available' \
+            '#endif' \
+            '#include <meta>' \
+            'int main() { return 0; }' \
+            > "$src"
+          enabled=0
+          cmake_args=
+          if "$cxx" -std=c++26 -freflection "$src" -o "$bin" >/dev/null 2>&1; then
+            enabled=1
+            cmake_args="-DCMAKE_CXX_STANDARD=26 -DCMAKE_CXX_FLAGS=-freflection"
+            echo "reflection: yes ($cxx -std=c++26 -freflection)"
+          else
+            echo "reflection: no ($cxx)"
+          fi
+          echo "enabled=${enabled}" >> "$GITHUB_OUTPUT"
+          echo "cmake_args=${cmake_args}" >> "$GITHUB_OUTPUT"
       - name: Configure
-        run: cmake -S test -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S test -B build -DCMAKE_BUILD_TYPE=Release ${{ steps.reflection.outputs.cmake_args }}
       - name: Build
         run: cmake --build build --parallel
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
+      - &run-tests
+        name: Test
+        run: |
+          set -euo pipefail
+          echo "reflection enabled: ${{ steps.reflection.outputs.enabled }}"
+          ctest --test-dir build --verbose --output-on-failure | tee test-output.txt
+          if [ "${{ steps.reflection.outputs.enabled }}" = "1" ]; then
+            grep -F "test for test_view_00" test-output.txt
+          fi
 
   ubuntu-clang:
     name: ubuntu-clang
@@ -31,12 +64,31 @@ jobs:
       CXX: clang++
     steps:
       - uses: actions/checkout@v4
+      - *detect-reflection
       - name: Configure
-        run: cmake -S test -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S test -B build -DCMAKE_BUILD_TYPE=Release ${{ steps.reflection.outputs.cmake_args }}
       - name: Build
         run: cmake --build build --parallel
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
+      - *run-tests
+
+  ubuntu-gcc-16:
+    name: ubuntu-gcc-16
+    runs-on: ubuntu-26.04
+    env:
+      CC: gcc-16
+      CXX: g++-16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install g++-16
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-16
+      - *detect-reflection
+      - name: Configure
+        run: cmake -S test -B build -DCMAKE_BUILD_TYPE=Release ${{ steps.reflection.outputs.cmake_args }}
+      - name: Build
+        run: cmake --build build --parallel
+      - *run-tests
 
   windows-msvc-cl:
     name: windows-msvc-cl
@@ -48,7 +100,7 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C Release --verbose --output-on-failure
 
   windows-msvc-clang:
     name: windows-msvc-clang
@@ -60,4 +112,4 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C Release --verbose --output-on-failure

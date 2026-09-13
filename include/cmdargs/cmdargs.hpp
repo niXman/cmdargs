@@ -49,6 +49,12 @@
 #include <cassert>
 #include <typeinfo>
 
+#if defined(__cpp_impl_reflection) && __cpp_impl_reflection >= 202506L \
+    && __has_include(<meta>)
+#   include <meta>
+#   define CMDARGS_VIEWS_AVAIL 1
+#endif
+
 #ifndef CMDARGS_MAX_OPTION_DEPS
 #define CMDARGS_MAX_OPTION_DEPS 3
 #endif
@@ -1391,6 +1397,7 @@ public:
     bool has_short() const noexcept { return m_short_name != '\0'; }
     char short_name() const noexcept { return m_short_name; }
     bool is_set() const noexcept { return m_value.has_value(); }
+    const optional_type& as_optional() const noexcept { return m_value; }
     const auto& get_value() const noexcept { return m_value.value(); }
     void set_value(value_type v) { m_value = std::move(v); }
     bool is_bool() const noexcept { return std::is_same_v<value_type, bool>; }
@@ -1980,6 +1987,13 @@ public:
     auto optionals() const noexcept {
         return std::make_tuple(std::get<Args>(m_kwords).m_value...);
     }
+
+    template<typename T>
+    const typename T::optional_type& optional() const {
+        static_assert(contains<T>(), "cmdargs: option is absent from this args_pack");
+
+        return std::get<T>(m_kwords).as_optional();
+    }
     auto values() const {
         auto res = std::make_tuple(
             (std::get<Args>(m_kwords).m_value.has_value()
@@ -2281,6 +2295,130 @@ private:
         );
     }
 };
+
+#ifdef CMDARGS_VIEWS_AVAIL
+
+namespace details {
+
+consteval bool is_user_option_member(std::meta::info m) {
+    auto const t = std::meta::remove_cvref(
+        std::meta::dealias(std::meta::type_of(m))
+    );
+    if ( !std::meta::has_template_arguments(t) ) {
+        return false;
+    }
+    if ( std::meta::template_of(t) != ^^::cmdargs::option ) {
+        return false;
+    }
+    if ( t == std::meta::dealias(^^help_option_type)
+        || t == std::meta::dealias(^^version_option_type) )
+    {
+        return false;
+    }
+
+    return true;
+}
+
+consteval std::meta::info view_member_spec_of(std::meta::info m) {
+    auto const t = std::meta::remove_cvref(
+        std::meta::dealias(std::meta::type_of(m))
+    );
+    auto const args = std::meta::template_arguments_of(t);
+    auto const opt = std::meta::substitute(^^std::optional, {args[1]});
+    auto const ref = std::meta::add_lvalue_reference(std::meta::add_const(opt));
+
+    return std::meta::data_member_spec(
+         ref
+        ,{.name = std::string{std::meta::identifier_of(m)}}
+    );
+}
+
+consteval std::vector<std::meta::info> view_member_specs(std::meta::info kw) {
+    auto const ctx = std::meta::access_context::current();
+    std::vector<std::meta::info> specs;
+    for ( auto m: std::meta::nonstatic_data_members_of(kw, ctx) ) {
+        if ( !is_user_option_member(m) ) {
+            continue;
+        }
+        specs.push_back(view_member_spec_of(m));
+    }
+
+    return specs;
+}
+
+template<typename KWords>
+consteval std::size_t user_option_count() {
+    auto const ctx = std::meta::access_context::current();
+    std::size_t n = 0;
+    for ( auto m: std::meta::nonstatic_data_members_of(^^KWords, ctx) ) {
+        if ( is_user_option_member(m) ) {
+            ++n;
+        }
+    }
+
+    return n;
+}
+
+template<typename KWords>
+struct view_storage {
+    struct impl;
+    consteval {
+        std::meta::define_aggregate(^^impl, view_member_specs(^^KWords));
+    }
+};
+
+template<typename KWords, typename Pack, std::size_t ...I>
+auto bind_view_impl(const Pack &pack, std::index_sequence<I...>) {
+    constexpr auto mems = std::define_static_array(
+        [] {
+            auto const ctx = std::meta::access_context::current();
+            std::vector<std::meta::info> v;
+            for ( auto m: std::meta::nonstatic_data_members_of(^^KWords, ctx) ) {
+                if ( is_user_option_member(m) ) {
+                    v.push_back(m);
+                }
+            }
+
+            return v;
+        }()
+    );
+
+    using impl = typename view_storage<KWords>::impl;
+
+    return impl{
+        pack.template optional<
+            typename [: std::meta::remove_cvref(std::meta::type_of(mems[I])) :]
+        >()...
+    };
+}
+
+} // ns details
+
+template<typename KWords>
+struct view : details::view_storage<KWords>::impl {
+    template<typename ...P>
+    explicit view(const args_pack<P...> &pack)
+        : details::view_storage<KWords>::impl{
+            details::bind_view_impl<KWords>(
+                 pack
+                ,std::make_index_sequence<details::user_option_count<KWords>()>{}
+            )
+        }
+    {}
+};
+
+template<typename KWords>
+using view_t = view<std::remove_cvref_t<KWords>>;
+
+template<typename KWords, typename ...P>
+view_t<KWords> make_view(
+     const args_pack<P...> &pack
+    ,const KWords &
+) {
+    return view_t<KWords>{pack};
+}
+
+#endif // CMDARGS_VIEWS_AVAIL
 
 /*************************************************************************************************/
 
