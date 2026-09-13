@@ -47,6 +47,7 @@
 
 #include <cstdint>
 #include <cassert>
+#include <typeinfo>
 
 #ifndef CMDARGS_MAX_OPTION_DEPS
 #define CMDARGS_MAX_OPTION_DEPS 3
@@ -919,6 +920,14 @@ struct is_converter_with_deps<converter_with_deps<V, Opts...>>: std::true_type
 template<typename T>
 inline constexpr bool is_converter_with_deps_v = is_converter_with_deps<std::decay_t<T>>::value;
 
+template<typename T>
+struct converter_value_type;
+
+template<typename V, typename... Opts>
+struct converter_value_type<converter_with_deps<V, Opts...>> {
+    using type = V;
+};
+
 template<typename... Ts>
 struct first_validator_with_deps_or_none;
 
@@ -1004,11 +1013,31 @@ struct args_pack;
 
 namespace details {
 
+struct option_value_lookup {
+    virtual ~option_value_lookup() = default;
+    virtual const void *optional_for_type(const std::type_info &opt_ti) const noexcept = 0;
+};
+
+template<typename Opt>
+const std::optional<typename std::decay_t<Opt>::value_type>&
+lookup_optional(const option_value_lookup &lu) {
+    using opt_t = std::decay_t<Opt>;
+    const void *const p = lu.optional_for_type(typeid(opt_t));
+    assert(p && "cmdargs: dependency option is absent from this args_pack");
+
+    return *static_cast<const std::optional<typename opt_t::value_type> *>(p);
+}
+
 struct deps_storage_base {
     virtual ~deps_storage_base() = default;
     virtual std::unique_ptr<deps_storage_base> clone() const = 0;
     virtual const std::type_info &storage_type() const noexcept = 0;
     virtual void *storage_obj_void() noexcept = 0;
+    virtual bool is_validator_storage() const noexcept = 0;
+    virtual bool is_converter_storage() const noexcept = 0;
+    virtual bool deps_present(const option_value_lookup &lu) const = 0;
+    virtual bool run_validator(std::string_view s, const option_value_lookup &lu) const = 0;
+    virtual bool run_converter(void *dst, std::string_view s, const option_value_lookup &lu) const = 0;
 };
 
 template<typename T>
@@ -1029,6 +1058,51 @@ struct typed_deps_storage final : deps_storage_base {
 
     void *storage_obj_void() noexcept override {
         return static_cast<void *>(&body);
+    }
+
+    bool is_validator_storage() const noexcept override {
+        return is_validator_with_deps_v<T>;
+    }
+
+    bool is_converter_storage() const noexcept override {
+        return is_converter_with_deps_v<T>;
+    }
+
+    bool deps_present(const option_value_lookup &lu) const override {
+        if constexpr ( is_validator_with_deps_v<T> || is_converter_with_deps_v<T> ) {
+            return body.deps_present(lu);
+        } else {
+            (void)lu;
+
+            return true;
+        }
+    }
+
+    bool run_validator(std::string_view s, const option_value_lookup &lu) const override {
+        if constexpr ( is_validator_with_deps_v<T> ) {
+            return body.call(s, lu);
+        } else {
+            (void)s;
+            (void)lu;
+
+            return false;
+        }
+    }
+
+    bool run_converter(void *dst, std::string_view s, const option_value_lookup &lu) const override {
+        if constexpr ( is_converter_with_deps_v<T> ) {
+            return body.call(
+                 *static_cast<typename converter_value_type<T>::type *>(dst)
+                ,s
+                ,lu
+            );
+        } else {
+            (void)dst;
+            (void)s;
+            (void)lu;
+
+            return false;
+        }
     }
 };
 
@@ -1121,6 +1195,9 @@ inline void init_pack_dep_arrays_from_registry(
         0
     )...};
 }
+
+template<typename ...P>
+struct pack_option_value_lookup;
 
 template<typename ...P>
 bool rebind_validator_storage_into(
@@ -1721,7 +1798,7 @@ private:
     static std::vector<
         std::pair<kwords_group *, std::unique_ptr<details::option_ext_registry>>
     > &ext_registry_storage() noexcept {
-        thread_local std::vector<
+        static std::vector<
             std::pair<kwords_group *, std::unique_ptr<details::option_ext_registry>>
         > storage;
 
@@ -1823,10 +1900,8 @@ private:
     template<typename ID, typename V>
     friend struct option;
 
-    template<typename... Os>
-    friend struct ::cmdargs::details::validator_with_deps;
-    template<typename Vx, typename... Os>
-    friend struct ::cmdargs::details::converter_with_deps;
+    template<typename ...Ps>
+    friend struct ::cmdargs::details::pack_option_value_lookup;
 
     template<typename ...Types>
     static container_type init_kwords_and_dep_storage(
@@ -1887,6 +1962,20 @@ public:
 
         return std::nullopt;
     }
+
+private:
+    const void *dep_optional_ptr(const std::type_info &opt_ti) const noexcept {
+        const void *found = nullptr;
+        (void)((
+            typeid(Args) == opt_ti
+                ? (found = static_cast<const void *>(&std::get<Args>(m_kwords).m_value), true)
+                : false
+        ) || ...);
+
+        return found;
+    }
+
+public:
 
     auto optionals() const noexcept {
         return std::make_tuple(std::get<Args>(m_kwords).m_value...);
@@ -2215,14 +2304,12 @@ struct validator_with_deps {
         (void)std::initializer_list<int>{(static_cast<void>(opts), 0)...};
     }
 
-    template<typename ...P>
-    bool call(std::string_view s, const args_pack<P...> &pack) const {
-        static_assert((... && args_pack<P...>::template contains<std::decay_t<Opts>>()));
+    bool deps_present(const option_value_lookup &lu) const {
+        return (... && (lu.optional_for_type(typeid(std::decay_t<Opts>)) != nullptr));
+    }
 
-        return f(
-            s
-            ,std::get<std::decay_t<Opts>>(pack.m_kwords).m_value...
-        );
+    bool call(std::string_view s, const option_value_lookup &lu) const {
+        return f(s, lookup_optional<Opts>(lu)...);
     }
 };
 
@@ -2245,178 +2332,29 @@ struct converter_with_deps {
         (void)std::initializer_list<int>{(static_cast<void>(opts), 0)...};
     }
 
-    template<typename ...P>
-    bool call(V &dst, std::string_view s, const args_pack<P...> &pack) const {
-        static_assert((... && args_pack<P...>::template contains<std::decay_t<Opts>>()));
+    bool deps_present(const option_value_lookup &lu) const {
+        return (... && (lu.optional_for_type(typeid(std::decay_t<Opts>)) != nullptr));
+    }
 
-        return f(
-            dst
-            ,s
-            ,std::get<std::decay_t<Opts>>(pack.m_kwords).m_value...
-        );
+    bool call(V &dst, std::string_view s, const option_value_lookup &lu) const {
+        return f(dst, s, lookup_optional<Opts>(lu)...);
     }
 };
 
 /*************************************************************************************************/
 
-template<std::size_t I, typename ...P>
-using pack_option_t = std::tuple_element_t<I, std::tuple<P...>>;
+template<typename ...P>
+struct pack_option_value_lookup final : option_value_lookup {
+    const args_pack<P...> *pack;
 
-template<std::size_t I, typename ...P>
-inline bool try_rebind_validator_1(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    using Ev = validator_with_deps<pack_option_t<I, P...>>;
+    explicit pack_option_value_lookup(const args_pack<P...> &p) noexcept
+        :pack{&p}
+    {}
 
-    if ( ti != typeid(Ev) ) {
-        return false;
+    const void *optional_for_type(const std::type_info &opt_ti) const noexcept override {
+        return pack->dep_optional_ptr(opt_ti);
     }
-
-    auto &v = *static_cast<Ev *>(stor.storage_obj_void());
-    slot = std::function<bool(std::string_view)>{
-        [&v, &pack](std::string_view s) noexcept -> bool {
-            return v.call(s, pack);
-        }
-    };
-
-    return true;
-}
-
-template<typename ...P, std::size_t ...I>
-inline bool rebind_validator_dispatch_1(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-    ,std::index_sequence<I...>
-) {
-    return (... || try_rebind_validator_1<I, P...>(ti, stor, slot, pack));
-}
-
-template<std::size_t I, std::size_t J, typename ...P>
-inline bool try_rebind_validator_2(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    if constexpr ( I == J ) {
-        (void)ti;
-        (void)stor;
-        (void)slot;
-        (void)pack;
-
-        return false;
-    } else {
-        using Ev = validator_with_deps<
-             pack_option_t<I, P...>
-            ,pack_option_t<J, P...>
-        >;
-
-        if ( ti != typeid(Ev) ) {
-            return false;
-        }
-
-        auto &v = *static_cast<Ev *>(stor.storage_obj_void());
-        slot = std::function<bool(std::string_view)>{
-            [&v, &pack](std::string_view s) noexcept -> bool {
-                return v.call(s, pack);
-            }
-        };
-
-        return true;
-    }
-}
-
-template<std::size_t K, typename ...P>
-inline bool try_rebind_validator_2_flat(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    constexpr std::size_t n = sizeof...(P);
-    constexpr std::size_t i = K / n;
-    constexpr std::size_t j = K % n;
-
-    return try_rebind_validator_2<i, j, P...>(ti, stor, slot, pack);
-}
-
-template<typename ...P, std::size_t ...K>
-inline bool rebind_validator_dispatch_2(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-    ,std::index_sequence<K...>
-) {
-    return (... || try_rebind_validator_2_flat<K, P...>(ti, stor, slot, pack));
-}
-
-template<std::size_t I, std::size_t J, std::size_t L, typename ...P>
-inline bool try_rebind_validator_3(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    if constexpr ( I == J || I == L || J == L ) {
-        (void)ti;
-        (void)stor;
-        (void)slot;
-        (void)pack;
-
-        return false;
-    } else {
-        using Ev = validator_with_deps<
-             pack_option_t<I, P...>
-            ,pack_option_t<J, P...>
-            ,pack_option_t<L, P...>
-        >;
-
-        if ( ti != typeid(Ev) ) {
-            return false;
-        }
-
-        auto &v = *static_cast<Ev *>(stor.storage_obj_void());
-        slot = std::function<bool(std::string_view)>{
-            [&v, &pack](std::string_view s) noexcept -> bool {
-                return v.call(s, pack);
-            }
-        };
-
-        return true;
-    }
-}
-
-template<std::size_t Flat, typename ...P>
-inline bool try_rebind_validator_3_flat(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    constexpr std::size_t n = sizeof...(P);
-    constexpr std::size_t i = Flat / (n * n);
-    constexpr std::size_t j = (Flat / n) % n;
-    constexpr std::size_t k = Flat % n;
-
-    return try_rebind_validator_3<i, j, k, P...>(ti, stor, slot, pack);
-}
-
-template<typename ...P, std::size_t ...K>
-inline bool rebind_validator_dispatch_3(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(std::string_view)> &slot
-    ,args_pack<P...> &pack
-    ,std::index_sequence<K...>
-) {
-    return (... || try_rebind_validator_3_flat<K, P...>(ti, stor, slot, pack));
-}
+};
 
 template<typename ...P>
 inline bool rebind_validator_storage_into(
@@ -2424,199 +2362,22 @@ inline bool rebind_validator_storage_into(
     ,std::function<bool(std::string_view)> &slot
     ,args_pack<P...> &pack
 ) {
-    if ( !stor ) {
+    if ( !stor || !stor->is_validator_storage() ) {
         return false;
     }
 
-    const std::type_info &ti = stor->storage_type();
-    deps_storage_base &s = *stor;
-    constexpr std::size_t n = sizeof...(P);
-
-    if ( rebind_validator_dispatch_1<P...>(ti, s, slot, pack, std::make_index_sequence<n>{}) ) {
-        return true;
-    }
-
-#if CMDARGS_MAX_OPTION_DEPS >= 2
-    if constexpr ( n >= 2u ) {
-        if ( rebind_validator_dispatch_2<P...>(
-                ti, s, slot, pack, std::make_index_sequence<n * n>{}
-            ) )
-        {
-            return true;
-        }
-    }
-#endif
-
-#if CMDARGS_MAX_OPTION_DEPS >= 3
-    if constexpr ( n >= 3u ) {
-        if ( rebind_validator_dispatch_3<P...>(
-                ti, s, slot, pack, std::make_index_sequence<n * n * n>{}
-            ) )
-        {
-            return true;
-        }
-    }
-#endif
-
-    return false;
-}
-
-template<typename V, std::size_t I, typename ...P>
-inline bool try_rebind_converter_1(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    using Ec = converter_with_deps<V, pack_option_t<I, P...>>;
-
-    if ( ti != typeid(Ec) ) {
+    const pack_option_value_lookup<P...> probe{pack};
+    if ( !stor->deps_present(probe) ) {
         return false;
     }
 
-    auto &c = *static_cast<Ec *>(stor.storage_obj_void());
-    slot = std::function<bool(V &, std::string_view)>{
-        [&c, &pack](V &dst, std::string_view s) -> bool {
-            return c.call(dst, s, pack);
-        }
+    slot = [stor, &pack](std::string_view s) noexcept -> bool {
+        const pack_option_value_lookup<P...> lu{pack};
+
+        return stor->run_validator(s, lu);
     };
 
     return true;
-}
-
-template<typename V, typename ...P, std::size_t ...I>
-inline bool rebind_converter_dispatch_1(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-    ,std::index_sequence<I...>
-) {
-    return (... || try_rebind_converter_1<V, I, P...>(ti, stor, slot, pack));
-}
-
-template<typename V, std::size_t I, std::size_t J, typename ...P>
-inline bool try_rebind_converter_2(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    if constexpr ( I == J ) {
-        (void)ti;
-        (void)stor;
-        (void)slot;
-        (void)pack;
-
-        return false;
-    } else {
-        using Ec = converter_with_deps<
-             V
-            ,pack_option_t<I, P...>
-            ,pack_option_t<J, P...>
-        >;
-
-        if ( ti != typeid(Ec) ) {
-            return false;
-        }
-
-        auto &c = *static_cast<Ec *>(stor.storage_obj_void());
-        slot = std::function<bool(V &, std::string_view)>{
-            [&c, &pack](V &dst, std::string_view s) -> bool {
-                return c.call(dst, s, pack);
-            }
-        };
-
-        return true;
-    }
-}
-
-template<typename V, std::size_t K, typename ...P>
-inline bool try_rebind_converter_2_flat(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    constexpr std::size_t n = sizeof...(P);
-    constexpr std::size_t i = K / n;
-    constexpr std::size_t j = K % n;
-
-    return try_rebind_converter_2<V, i, j, P...>(ti, stor, slot, pack);
-}
-
-template<typename V, typename ...P, std::size_t ...K>
-inline bool rebind_converter_dispatch_2(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-    ,std::index_sequence<K...>
-) {
-    return (... || try_rebind_converter_2_flat<V, K, P...>(ti, stor, slot, pack));
-}
-
-template<typename V, std::size_t I, std::size_t J, std::size_t L, typename ...P>
-inline bool try_rebind_converter_3(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    if constexpr ( I == J || I == L || J == L ) {
-        (void)ti;
-        (void)stor;
-        (void)slot;
-        (void)pack;
-
-        return false;
-    } else {
-        using Ec = converter_with_deps<
-             V
-            ,pack_option_t<I, P...>
-            ,pack_option_t<J, P...>
-            ,pack_option_t<L, P...>
-        >;
-
-        if ( ti != typeid(Ec) ) {
-            return false;
-        }
-
-        auto &c = *static_cast<Ec *>(stor.storage_obj_void());
-        slot = std::function<bool(V &, std::string_view)>{
-            [&c, &pack](V &dst, std::string_view s) -> bool {
-                return c.call(dst, s, pack);
-            }
-        };
-
-        return true;
-    }
-}
-
-template<typename V, std::size_t Flat, typename ...P>
-inline bool try_rebind_converter_3_flat(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-) {
-    constexpr std::size_t n = sizeof...(P);
-    constexpr std::size_t i = Flat / (n * n);
-    constexpr std::size_t j = (Flat / n) % n;
-    constexpr std::size_t k = Flat % n;
-
-    return try_rebind_converter_3<V, i, j, k, P...>(ti, stor, slot, pack);
-}
-
-template<typename V, typename ...P, std::size_t ...K>
-inline bool rebind_converter_dispatch_3(
-     const std::type_info &ti
-    ,deps_storage_base &stor
-    ,std::function<bool(V &, std::string_view)> &slot
-    ,args_pack<P...> &pack
-    ,std::index_sequence<K...>
-) {
-    return (... || try_rebind_converter_3_flat<V, K, P...>(ti, stor, slot, pack));
 }
 
 template<typename V, typename ...P>
@@ -2625,41 +2386,22 @@ inline bool rebind_converter_storage_into(
     ,std::function<bool(V &, std::string_view)> &slot
     ,args_pack<P...> &pack
 ) {
-    if ( !stor ) {
+    if ( !stor || !stor->is_converter_storage() ) {
         return false;
     }
 
-    const std::type_info &ti = stor->storage_type();
-    deps_storage_base &s = *stor;
-    constexpr std::size_t n = sizeof...(P);
-
-    if ( rebind_converter_dispatch_1<V, P...>(ti, s, slot, pack, std::make_index_sequence<n>{}) ) {
-        return true;
+    const pack_option_value_lookup<P...> probe{pack};
+    if ( !stor->deps_present(probe) ) {
+        return false;
     }
 
-#if CMDARGS_MAX_OPTION_DEPS >= 2
-    if constexpr ( n >= 2u ) {
-        if ( rebind_converter_dispatch_2<V, P...>(
-                ti, s, slot, pack, std::make_index_sequence<n * n>{}
-            ) )
-        {
-            return true;
-        }
-    }
-#endif
+    slot = [stor, &pack](V &dst, std::string_view s) -> bool {
+        const pack_option_value_lookup<P...> lu{pack};
 
-#if CMDARGS_MAX_OPTION_DEPS >= 3
-    if constexpr ( n >= 3u ) {
-        if ( rebind_converter_dispatch_3<V, P...>(
-                ti, s, slot, pack, std::make_index_sequence<n * n * n>{}
-            ) )
-        {
-            return true;
-        }
-    }
-#endif
+        return stor->run_converter(&dst, s, lu);
+    };
 
-    return false;
+    return true;
 }
 
 } // namespace details
