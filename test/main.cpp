@@ -2511,8 +2511,10 @@ static void test_view_00() {
         CMDARGS_ASSERT(v.fname.value() == "hi");
         CMDARGS_ASSERT(v.flag.has_value());
         CMDARGS_ASSERT(v.flag.value() == true);
-        CMDARGS_ASSERT(!v.n.has_value());
+        CMDARGS_ASSERT(v.n.has_value());
+        CMDARGS_ASSERT(v.n.value() == 6);
         CMDARGS_ASSERT(args.get(kwords.n) == 6);
+        CMDARGS_ASSERT(!args.is_set(kwords.n));
 
         const auto v2 = cmdargs::make_view(args, kwords);
         CMDARGS_ASSERT(v2.fname.value() == "hi");

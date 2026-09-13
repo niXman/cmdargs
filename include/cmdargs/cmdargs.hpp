@@ -1398,6 +1398,9 @@ public:
     char short_name() const noexcept { return m_short_name; }
     bool is_set() const noexcept { return m_value.has_value(); }
     const optional_type& as_optional() const noexcept { return m_value; }
+    const optional_type& as_effective_optional() const noexcept {
+        return is_set() ? m_value : m_default_value;
+    }
     const auto& get_value() const noexcept { return m_value.value(); }
     void set_value(value_type v) { m_value = std::move(v); }
     bool is_bool() const noexcept { return std::is_same_v<value_type, bool>; }
@@ -1994,6 +1997,12 @@ public:
 
         return std::get<T>(m_kwords).as_optional();
     }
+    template<typename T>
+    const typename T::optional_type& effective_optional() const {
+        static_assert(contains<T>(), "cmdargs: option is absent from this args_pack");
+
+        return std::get<T>(m_kwords).as_effective_optional();
+    }
     auto values() const {
         auto res = std::make_tuple(
             (std::get<Args>(m_kwords).m_value.has_value()
@@ -2386,7 +2395,7 @@ auto bind_view_impl(const Pack &pack, std::index_sequence<I...>) {
     using impl = typename view_storage<KWords>::impl;
 
     return impl{
-        pack.template optional<
+        pack.template effective_optional<
             typename [: std::meta::remove_cvref(std::meta::type_of(mems[I])) :]
         >()...
     };
